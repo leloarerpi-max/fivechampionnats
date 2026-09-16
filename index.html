@@ -18,35 +18,16 @@
     --green:#3ddc84;
     --red:#ff5d5d;
     --blue:#5aa9ff;
-    --bg-glow:#142a20;
-    --overlay:rgba(4,8,6,.88);
-    --score-bg:#062015;
-  }
-  :root[data-theme="light"]{
-    --bg:#f3f5f3;
-    --panel:#ffffff;
-    --panel-2:#eef1ee;
-    --line:#dde3de;
-    --text:#182019;
-    --muted:#66756c;
-    --amber:#b3720a;
-    --green:#1f9d5c;
-    --red:#c9403f;
-    --blue:#2266c9;
-    --bg-glow:#dcefe2;
-    --overlay:rgba(255,255,255,.85);
-    --score-bg:#0a2417;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     background:
-      radial-gradient(1200px 600px at 50% -10%, var(--bg-glow) 0%, transparent 60%),
+      radial-gradient(1200px 600px at 50% -10%, #142a20 0%, transparent 60%),
       var(--bg);
     color:var(--text);
     font-family:'Inter',sans-serif;
     min-height:100vh;
-    transition:background-color .2s, color .2s;
   }
   .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
 
@@ -163,7 +144,6 @@
   }
   table.standings td.num{font-family:'JetBrains Mono',monospace;text-align:center;}
   table.standings td.team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
-  table.standings td.team .team-name{cursor:help;border-bottom:1px dotted var(--muted);}
   table.standings td.pts{font-weight:700;color:var(--amber);font-family:'JetBrains Mono',monospace;text-align:center;}
   table.standings tr td.pos{
     font-family:'JetBrains Mono',monospace;
@@ -225,13 +205,6 @@
   .md-nav button:disabled{opacity:.3;cursor:default;}
   .md-nav button:hover:not(:disabled){border-color:var(--amber);}
 
-  .season-progress{margin-bottom:12px;}
-  .season-progress-bar{
-    height:6px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; overflow:hidden;
-  }
-  .season-progress-fill{height:100%; background:var(--green); transition:width .3s ease;}
-  .season-progress-label{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--muted); margin-top:4px;}
-
   .fixture{
     display:grid;
     grid-template-columns:1fr auto 1fr;
@@ -256,23 +229,6 @@
     color:var(--amber);
   }
   .fixture .score.pending{color:var(--muted);font-weight:400;}
-
-  .rivalry-badge{
-    grid-column:1 / -1;
-    text-align:center;
-    font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;
-    letter-spacing:.04em;
-    color:var(--amber);
-    padding-bottom:4px;
-  }
-  .fixture-rivalry{
-    background:rgba(255,183,3,.06);
-    border:1px solid var(--amber);
-    border-radius:4px;
-    padding:8px 6px 6px;
-    margin:2px 0;
-  }
 
   .score-inputs{
     display:flex;
@@ -316,7 +272,7 @@
     margin-top:14px;
     padding:13px;
     background:var(--green);
-    color:var(--score-bg);
+    color:#062015;
     border:none;
     border-radius:4px;
     font-family:'Bebas Neue',sans-serif;
@@ -402,7 +358,6 @@
     color:var(--amber);
     margin-bottom:10px;
   }
-  .h2h-trend{font-size:12px; color:var(--amber); margin-bottom:8px; line-height:1.4;}
   .h2h-list .h2h-row{
     display:flex;
     justify-content:space-between;
@@ -601,7 +556,7 @@
   }
   /* ---------- Mode Direct (multiplex minute par minute) ---------- */
   .live-overlay{
-    position:fixed; inset:0; background:var(--overlay);
+    position:fixed; inset:0; background:rgba(4,8,6,.88);
     z-index:999; display:flex; align-items:center; justify-content:center; padding:14px;
   }
   .live-box{
@@ -649,17 +604,8 @@
   table.live-mini-table{font-size:12px;}
   table.live-mini-table tr.flash-up{animation:flashGreenRow 1.6s ease;}
   table.live-mini-table tr.flash-down{animation:flashRedRow 1.6s ease;}
-  table.standings tr.flash-up{animation:flashGreenRow 1.8s ease;}
-  table.standings tr.flash-down{animation:flashRedRow 1.8s ease;}
   @keyframes flashGreenRow{0%{background:rgba(61,220,132,.55);}100%{background:transparent;}}
   @keyframes flashRedRow{0%{background:rgba(255,93,93,.55);}100%{background:transparent;}}
-
-  /* ---------- Tendance de classement (flèche + sparkline) ---------- */
-  .trend-cell{display:flex; align-items:center; gap:5px; white-space:nowrap;}
-  .trend-up{color:var(--green); font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;}
-  .trend-down{color:var(--red); font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;}
-  .trend-flat{color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px;}
-  .pos-spark{display:block; flex-shrink:0;}
   .live-news{border-top:1px solid var(--line);padding:16px 18px;}
   .live-news-item{padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;color:var(--muted);}
     /* ---------- Planning hebdomadaire (1 saison = 1 semaine calendaire) ---------- */
@@ -685,33 +631,6 @@
   /* ---------- Favoris ---------- */
   .fav-toggle{cursor:pointer;user-select:none;font-size:13px;display:inline-block;margin-right:3px;}
   .fav-toggle:hover{transform:scale(1.2);}
-
-  /* ---------- Bandeau de notification (sauvegarde corrompue, etc.) ---------- */
-  .app-notice{
-    position:fixed; left:50%; top:14px; transform:translateX(-50%);
-    max-width:min(90vw,560px); z-index:1000;
-    background:var(--panel); border:1px solid var(--amber); color:var(--text);
-    font-size:12.5px; line-height:1.4; padding:10px 14px; border-radius:6px;
-    box-shadow:0 6px 22px rgba(0,0,0,.35);
-  }
-  .app-notice.warn{border-color:var(--red);}
-
-  /* ---------- Édition des forces des clubs ---------- */
-  #strengths-list{max-height:52vh; overflow-y:auto;}
-  .strength-row{
-    display:grid; grid-template-columns:1fr auto 90px; align-items:center; gap:10px;
-    padding:6px 0; border-bottom:1px solid var(--panel-2); font-size:13px;
-  }
-  .strength-row:last-child{border-bottom:none;}
-  .strength-row input[type="range"]{width:100%;}
-  .strength-row .strength-value{
-    font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--amber);
-    text-align:right; min-width:26px;
-  }
-  .strength-row input[type="number"]{
-    width:60px; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    border-radius:3px; padding:5px; text-align:center; font-family:'JetBrains Mono',monospace;
-  }
 </style>
 </head>
 <body>
@@ -723,11 +642,9 @@
     <div class="subtitle">Ligue 1, Premier League, Liga, Serie A, Bundesliga — calendrier complet, résultats simulés ou saisis journée par journée.</div>
   </header>
 
-  <div class="tabs" id="tabs" role="tablist" aria-label="Choix du championnat"></div>
+  <div class="tabs" id="tabs"></div>
 
   <div class="toolbar">
-    <button class="tool-btn" id="theme-toggle">☀️ Thème clair</button>
-    <button class="tool-btn" id="edit-strengths-btn">✏️ Éditer les forces des clubs</button>
     <button class="tool-btn" id="multi-toggle">Vue multi-championnats</button>
     <button class="tool-btn" id="goto-palmares-btn">🏆 Aller au palmarès</button>
     <button class="tool-btn" id="next-season-btn">Saison suivante</button>
@@ -752,16 +669,14 @@
   <div class="grid" id="single-view">
     <div class="panel">
       <h2 id="standings-title">Classement</h2>
-      <div class="table-scroll">
       <table class="standings">
         <thead>
           <tr>
-            <th scope="col">#</th><th scope="col">Équipe</th><th scope="col">J</th><th scope="col">V</th><th scope="col">N</th><th scope="col">D</th><th scope="col">BP</th><th scope="col">BC</th><th scope="col">Diff</th><th scope="col">Pts</th><th scope="col">Tendance</th><th scope="col">Forme</th>
+            <th>#</th><th>Équipe</th><th>J</th><th>V</th><th>N</th><th>D</th><th>BP</th><th>BC</th><th>Diff</th><th>Pts</th><th>Forme</th>
           </tr>
         </thead>
         <tbody id="standings-body"></tbody>
       </table>
-      </div>
       <div class="legend" id="legend"></div>
     </div>
 
@@ -772,10 +687,6 @@
           <button id="md-prev">&larr;</button>
           <button id="md-next">&rarr;</button>
         </div>
-      </div>
-      <div class="season-progress" id="season-progress" style="display:none;">
-        <div class="season-progress-bar"><div class="season-progress-fill" id="season-progress-fill"></div></div>
-        <div class="season-progress-label" id="season-progress-label"></div>
       </div>
       <div id="euro-info" class="euro-info" style="display:none;"></div>
       <div id="fixtures"></div>
@@ -897,52 +808,7 @@
   </div>
 </div>
 
-<div class="live-overlay" id="strengths-overlay" style="display:none;">
-  <div class="live-box" style="max-width:560px;">
-    <div class="live-top">
-      <div class="live-title">✏️ Forces des clubs — <span id="strengths-league-name"></span></div>
-      <div class="live-actions">
-        <button class="live-btn live-close" id="strengths-close-btn">✕ Fermer</button>
-      </div>
-    </div>
-    <div style="padding:16px 18px;">
-      <p style="color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.5;">
-        Ajuste la force de base (35–99) de chaque club de ce championnat. Cette valeur pilote directement
-        la probabilité de buts lors des simulations ; les modificateurs de forme et de fatigue s'ajoutent
-        par-dessus, match par match.
-      </p>
-      <div id="strengths-list"></div>
-      <div style="display:flex; gap:8px; margin-top:14px;">
-        <button class="sim-btn" id="strengths-save-btn" style="margin-top:0;">Enregistrer les forces</button>
-        <button class="reset-btn" id="strengths-reset-btn" style="margin-top:0;">Réinitialiser aux valeurs par défaut</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
-/* ============================================================================
-   SOMMAIRE DU FICHIER (pour navigation rapide — Ctrl+F sur les repères ci-dessous)
-   ----------------------------------------------------------------------------
-   1. DONNÉES        : forces des clubs, réservoirs montée/descente, ligues,
-                        effectifs réels/fictifs (constantes en lecture seule)
-   2. MOTEUR          : calendrier round-robin, tirages au sort, phases finales,
-                        simulation de match (Poisson + forme + fatigue + enjeu)
-   3. ÉTAT & RENDU    : état des championnats, onglets, classement, journées,
-                        phases finales, confrontations directes, multi-vue
-   4. ACTIONS         : boutons de simulation (journée / saison / N saisons),
-                        fin de saison, montée-descente, résumés
-   5. ÉDITION ÉQUIPES : panneau d'édition des forces des clubs (personnalisation)
-   6. SAUVEGARDE      : export/import JSON, localStorage, résilience aux
-                        sauvegardes corrompues, notifications
-   7. HISTORIQUE      : palmarès, historique des saisons, buteurs
-   8. MODE DIRECT     : multiplex minute par minute
-   9. PLANNING        : répartition hebdomadaire des tâches de la saison
-   10. THÈME          : bascule clair / sombre
-   11. RENDU GLOBAL   : fonction render() qui orchestre tout l'affichage
-   ============================================================================ */
-
-/* ---------- 1. DONNÉES ---------- */
 /* ---------- Force des équipes (1-100, approximatif) ---------- */
 const STRENGTHS = {
   // Ligue 1
@@ -1024,10 +890,6 @@ const LIGUE2_EXTRA_STRENGTHS = {
 };
 Object.assign(STRENGTHS, LIGUE2_EXTRA_STRENGTHS);
 
-// Copie figée des forces de départ, pour permettre de "réinitialiser aux valeurs par défaut"
-// depuis le panneau d'édition — STRENGTHS lui-même évolue ensuite au fil des saisons.
-const DEFAULT_STRENGTHS = { ...STRENGTHS };
-
 /* ---------- Données des championnats ---------- */
 const LEAGUES = {
   l1: {
@@ -1084,43 +946,6 @@ const LEAGUES = {
 
 const DOMESTIC_KEYS = ["l1","pl","liga","seriea","bundes"];
 
-/* ---------- Grands rendez-vous (derbies / classicos) mis en avant dans le calendrier ---------- */
-const RIVALRIES = {
-  l1: [
-    ["Paris Saint-Germain","Olympique de Marseille","🔥 Le Classique"],
-    ["Paris Saint-Germain","Paris FC","🔥 Derby parisien"],
-    ["Olympique Lyonnais","Olympique de Marseille","🔥 Olympico"]
-  ],
-  pl: [
-    ["Manchester City","Manchester United","🔥 Derby de Manchester"],
-    ["Liverpool","Everton","🔥 Derby de la Mersey"],
-    ["Arsenal","Tottenham Hotspur","🔥 Derby du Nord de Londres"],
-    ["Newcastle United","Sunderland","🔥 Derby du Tyne-Wear"]
-  ],
-  liga: [
-    ["Real Madrid","FC Barcelone","🔥 El Clásico"],
-    ["Real Madrid","Atlético de Madrid","🔥 Derbi madrileño"],
-    ["Sevilla FC","Real Betis","🔥 Derbi sevillano"]
-  ],
-  seriea: [
-    ["Inter Milan","AC Milan","🔥 Derby della Madonnina"],
-    ["AS Roma","SS Lazio","🔥 Derby della Capitale"],
-    ["Juventus","Torino","🔥 Derby della Mole"]
-  ],
-  bundes: [
-    ["FC Bayern Munich","Borussia Dortmund","🔥 Der Klassiker"],
-    ["Borussia Dortmund","FC Schalke 04","🔥 Revierderby"],
-    ["1. FC Köln","Borussia Mönchengladbach","🔥 Rheinisches Derby"]
-  ]
-};
-function rivalryLabel(key, teamA, teamB){
-  const list = RIVALRIES[key];
-  if (!list) return null;
-  const found = list.find(([a, b]) => (a === teamA && b === teamB) || (a === teamB && b === teamA));
-  return found ? found[2] : null;
-}
-
-/* ---------- 2. MOTEUR ---------- */
 /* ---------- Génération du calendrier (round-robin) ---------- */
 function roundRobinRounds(teams){
   let arr = teams.slice();
@@ -1450,23 +1275,6 @@ function effectiveStrength(team){
   return base + formModifier(team) + fatigueModifier(team);
 }
 
-// Texte d'info-bulle expliquant la force effective d'une équipe (base + forme + fatigue + blessure).
-function teamTooltip(team){
-  const base = STRENGTHS[team] ?? 55;
-  const form = formModifier(team);
-  const fatigue = fatigueModifier(team);
-  const key = domesticKeyOfTeam(team);
-  const mdIdx = key ? state[key].viewMatchday : null;
-  const injury = key != null ? injuryModifier(team, key, mdIdx) : 0;
-  const fmt = n => (n > 0 ? '+' : '') + n.toFixed(1);
-  const lines = [`Force de base : ${base}`];
-  if (Math.abs(form) > 0.01) lines.push(`Forme (5 derniers matchs) : ${fmt(form)}`);
-  if (Math.abs(fatigue) > 0.01) lines.push(`Fatigue (coupes d'Europe) : ${fmt(fatigue)}`);
-  if (injury !== 0 && injuries[team]) lines.push(`Blessure en cours (${injuries[team].player}) : ${fmt(injury)}`);
-  lines.push(`Force effective : ${(effectiveStrength(team) + injury).toFixed(1)}`);
-  return lines.join('\n');
-}
-
 /* ---------- Enjeu de fin de saison : moins de hasard pour les matchs décisifs,
    plus de surprises pour les matchs sans enjeu (relâchement / rotation) ---------- */
 function teamHasStakes(key, team, rows){
@@ -1497,14 +1305,12 @@ function varianceRangeFor(key, mdIdx, home, away){
   return stakes ? 0.18 : 0.42;
 }
 
-const HOME_STRENGTH_BONUS = 4; // léger bonus de force pour l'équipe qui reçoit (public, terrain connu, déplacement adverse)
-
 function matchAverages(home, away, key, mdIdx){
-  const rh = effectiveStrength(home) + HOME_STRENGTH_BONUS + injuryModifier(home, key, mdIdx);
-  const ra = effectiveStrength(away) + injuryModifier(away, key, mdIdx);
+  const rh = effectiveStrength(home);
+  const ra = effectiveStrength(away);
   const diff = rh - ra;
-  let homeAvg = 1.5 + diff / 55;
-  let awayAvg = 1.0 - diff / 55;
+  let homeAvg = 1.45 + diff / 55;
+  let awayAvg = 1.05 - diff / 55;
   homeAvg = Math.min(2.6, Math.max(0.55, homeAvg));
   awayAvg = Math.min(2.6, Math.max(0.55, awayAvg));
   // "jour sans / jour avec" : variance indépendante de la force, resserrée pour les matchs
@@ -1520,12 +1326,9 @@ function simulateMatch(home, away, key, mdIdx){
   const homeGoals = Math.min(8, poissonGoals(homeAvg));
   const awayGoals = Math.min(8, poissonGoals(awayAvg));
   recordScorers(key, home, away, homeGoals, awayGoals);
-  maybeInjure(home, key, mdIdx);
-  maybeInjure(away, key, mdIdx);
   return [homeGoals, awayGoals];
 }
 
-/* ---------- 3. ÉTAT & RENDU ---------- */
 /* ---------- État ---------- */
 const state = {};
 Object.keys(LEAGUES).forEach(key => initLeague(key));
@@ -1620,36 +1423,13 @@ Object.keys(LEAGUES).forEach(key => {
   const btn = document.createElement('button');
   btn.className = 'tab' + (key === activeLeague ? ' active' : '');
   btn.dataset.key = key;
-  btn.setAttribute('role', 'tab');
-  btn.setAttribute('aria-selected', key === activeLeague ? 'true' : 'false');
-  btn.setAttribute('tabindex', key === activeLeague ? '0' : '-1');
   btn.innerHTML = `<span class="league-flag" style="background:${LEAGUES[key].color}"></span>${LEAGUES[key].name}`;
-  btn.addEventListener('click', () => activateTab(key));
-  tabsEl.appendChild(btn);
-});
-function activateTab(key){
-  activeLeague = key;
-  document.querySelectorAll('.tab').forEach(t => {
-    const isActive = t.dataset.key === key;
-    t.classList.toggle('active', isActive);
-    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    t.setAttribute('tabindex', isActive ? '0' : '-1');
-    if (isActive) t.focus();
+  btn.addEventListener('click', () => {
+    activeLeague = key;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.key === key));
+    render();
   });
-  render();
-}
-// Navigation clavier ← → sur les onglets (pattern ARIA "tabs")
-tabsEl.addEventListener('keydown', (e) => {
-  if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
-  const tabs = Array.from(tabsEl.querySelectorAll('.tab'));
-  const idx = tabs.findIndex(t => t.dataset.key === activeLeague);
-  let nextIdx = idx;
-  if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
-  else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
-  else if (e.key === 'Home') nextIdx = 0;
-  else if (e.key === 'End') nextIdx = tabs.length - 1;
-  e.preventDefault();
-  activateTab(tabs[nextIdx].dataset.key);
+  tabsEl.appendChild(btn);
 });
 
 /* ---------- Confrontations directes ---------- */
@@ -1673,29 +1453,6 @@ function h2hGoalDiffPair(st, teamA, teamB){
     else diff += (m.ag - m.hg);
   });
   return diff;
-}
-
-// Série de victoires consécutives en cours (la plus récente en premier) + plus large victoire de l'historique.
-function h2hStreakAndBiggest(meetings, teamA, teamB){
-  let streakTeam = null, streakCount = 0;
-  for (let i = meetings.length - 1; i >= 0; i--){
-    const m = meetings[i];
-    const goalsA = m.home === teamA ? m.hg : m.ag;
-    const goalsB = m.home === teamA ? m.ag : m.hg;
-    const winner = goalsA > goalsB ? teamA : (goalsB > goalsA ? teamB : null);
-    if (i === meetings.length - 1){
-      if (!winner) break;
-      streakTeam = winner; streakCount = 1;
-    } else if (winner === streakTeam){
-      streakCount++;
-    } else break;
-  }
-  let biggest = null;
-  meetings.forEach(m => {
-    const margin = Math.abs(m.hg - m.ag);
-    if (!biggest || margin > biggest.margin) biggest = { ...m, margin };
-  });
-  return { streakTeam, streakCount, biggest };
 }
 
 /* ---------- Calcul du classement ---------- */
@@ -1740,56 +1497,6 @@ function zoneClass(pos, europe){
   return '';
 }
 
-// Instantané du classement après chaque journée intégralement jouée (pour la mini-tendance
-// et le sparkline de position). S'arrête à la première journée incomplète.
-function leagueStandingsHistory(key){
-  const league = LEAGUES[key];
-  const st = state[key];
-  const table = {};
-  league.teams.forEach(t => table[t] = { team: t, w: 0, d: 0, gf: 0, ga: 0 });
-  const history = [];
-  for (let mdIdx = 0; mdIdx < st.results.length; mdIdx++){
-    const mdResults = st.results[mdIdx];
-    if (!mdResults.length || !mdResults.every(r => r)) break;
-    mdResults.forEach((res, i) => {
-      const [home, away] = st.schedule[mdIdx][i];
-      const [hg, ag] = res;
-      const H = table[home], A = table[away];
-      H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
-      if (hg > ag){ H.w++; A.d += 0; } else if (hg < ag){ A.w++; } else { H.d++; A.d++; }
-    });
-    const rows = Object.values(table).map(r => ({ ...r, gd: r.gf - r.ga, pts: r.w * 3 + r.d }));
-    rows.sort((a, b) => {
-      if (b.pts !== a.pts) return b.pts - a.pts;
-      const h2h = h2hGoalDiffPair(st, a.team, b.team);
-      if (h2h !== 0) return -h2h;
-      if (b.gd !== a.gd) return b.gd - a.gd;
-      if (b.gf !== a.gf) return b.gf - a.gf;
-      return a.team.localeCompare(b.team);
-    });
-    const posMap = {};
-    rows.forEach((r, i) => { posMap[r.team] = i + 1; });
-    history.push(posMap);
-  }
-  return history;
-}
-
-// Petit sparkline SVG (position dans le temps — 1 en haut). Couleur selon la tendance globale.
-function buildSparkline(positions, maxPos){
-  if (positions.length < 2) return '<span class="form-none">—</span>';
-  const w = 48, h = 18, pad = 2;
-  const n = positions.length;
-  const stepX = (w - pad * 2) / (n - 1);
-  const scaleY = pos => maxPos <= 1 ? h / 2 : pad + ((pos - 1) / (maxPos - 1)) * (h - pad * 2);
-  const pts = positions.map((p, i) => `${(pad + i * stepX).toFixed(1)},${scaleY(p).toFixed(1)}`).join(' ');
-  const first = positions[0], last = positions[positions.length - 1];
-  const color = last < first ? 'var(--green)' : last > first ? 'var(--red)' : 'var(--muted)';
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="pos-spark" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-}
-
-// Position affichée au rendu précédent, pour animer les lignes qui changent de place.
-const prevStandingsPositions = {};
-
 /* ---------- Rendu du classement ---------- */
 function renderStandings(){
   const key = activeLeague;
@@ -1812,14 +1519,9 @@ function renderStandings(){
 
   const rows = computeStandings(key);
   const total = rows.length;
-  const history = leagueStandingsHistory(key);
-  const lastFullPos = history.length ? history[history.length - 1] : null;
-  const prevPositions = prevStandingsPositions[key] || {};
-  const newPositions = {};
 
   rows.forEach((r, i) => {
     const pos = i + 1;
-    newPositions[r.team] = pos;
     const tr = document.createElement('tr');
     let zone = '';
     if (league.continental){
@@ -1831,33 +1533,11 @@ function renderStandings(){
       if (pos > total - league.europe.releg - (league.europe.releg2 || 0)) zone = 'releg';
     }
     if (zone) tr.classList.add(zone);
-
-    // Anime la ligne si sa position a bougé depuis le dernier rendu (simulation, saisie de score...).
-    const prevPos = prevPositions[r.team];
-    if (prevPos != null && prevPos !== pos){
-      tr.classList.add(pos < prevPos ? 'flash-up' : 'flash-down');
-    }
-
     const formResults = recentResultsInCompetition(key, r.team, 5).slice().reverse();
     const formHtml = formResults.length
       ? formResults.map(res => `<span class="form-dot form-${res}" title="${res==='W'?'Victoire':res==='D'?'Nul':'Défaite'}"></span>`).join('')
       : '<span class="form-none">—</span>';
-
-    // Tendance depuis la dernière journée intégralement bouclée + mini historique de position.
-    const refPos = lastFullPos ? lastFullPos[r.team] : null;
-    let trendHtml = '<span class="trend-flat" title="Pas de changement récent">–</span>';
-    if (refPos != null && refPos !== pos){
-      const moved = refPos - pos; // positif = progression
-      trendHtml = moved > 0
-        ? `<span class="trend-up" title="+${moved} place${moved > 1 ? 's' : ''} depuis la dernière journée">▲${moved}</span>`
-        : `<span class="trend-down" title="${moved} place${moved < -1 ? 's' : ''} depuis la dernière journée">▼${Math.abs(moved)}</span>`;
-    }
-    const sparkPositions = history.map(h => h[r.team]).filter(v => v != null).slice(-8);
-    const trendCell = `<div class="trend-cell">${trendHtml}${buildSparkline(sparkPositions, total)}</div>`;
-
-    const injured = injuries[r.team] && injuries[r.team].key === key && state[key].viewMatchday <= injuries[r.team].untilMdIdx;
-    const injuryBadge = injured ? `<span title="${injuries[r.team].player} blessé">🤕</span> ` : '';
-    const teamCell = favToggleHtml(r.team) + injuryBadge + `<span class="team-name" title="${teamTooltip(r.team).replace(/"/g,'&quot;')}">${(league.continental && !league.cupOnly) ? frenchLabel(r.team) : r.team}</span>`;
+    const teamCell = favToggleHtml(r.team) + ((league.continental && !league.cupOnly) ? frenchLabel(r.team) : r.team);
     tr.innerHTML = `
       <td class="pos">${pos}</td>
       <td class="team">${teamCell}</td>
@@ -1869,13 +1549,10 @@ function renderStandings(){
       <td class="num">${r.ga}</td>
       <td class="num">${r.gd > 0 ? '+'+r.gd : r.gd}</td>
       <td class="pts">${r.pts}</td>
-      <td class="trend-cell-td">${trendCell}</td>
       <td class="form-cell">${formHtml}</td>
     `;
     body.appendChild(tr);
   });
-
-  prevStandingsPositions[key] = newPositions;
 
   if (league.continental){
     document.getElementById('legend').innerHTML = `
@@ -1939,7 +1616,6 @@ function renderFixtures(){
 
   if (league.teams.length === 0){
     document.getElementById('md-title').textContent = key === 'coupefrance' ? 'Tableau non tiré au sort' : 'Phase de ligue non tirée au sort';
-    document.getElementById('season-progress').style.display = 'none';
     prevBtn.disabled = true; nextBtn.disabled = true;
     container.innerHTML = key === 'coupefrance'
       ? '<div class="empty">Clique sur « Tirer au sort » ci-dessous pour composer le tableau à 32 (18 clubs de Ligue 1 + 14 de Ligue 2).</div>'
@@ -1959,7 +1635,6 @@ function renderFixtures(){
     seasonBtn.style.display = 'none';
     startKoBtn.style.display = 'none';
     liveBtn.style.display = 'none';
-    document.getElementById('season-progress').style.display = 'none';
     renderKnockout(key);
     return;
   }
@@ -1981,12 +1656,6 @@ function renderFixtures(){
   prevBtn.disabled = mdIdx === 0;
   nextBtn.disabled = mdIdx === totalMatchdays - 1;
 
-  const playedMd = st.results.filter(mdRes => mdRes.length > 0 && mdRes.every(r => r)).length;
-  const pct = totalMatchdays ? Math.round((playedMd / totalMatchdays) * 100) : 0;
-  document.getElementById('season-progress').style.display = '';
-  document.getElementById('season-progress-fill').style.width = pct + '%';
-  document.getElementById('season-progress-label').textContent = `${playedMd} / ${totalMatchdays} journées bouclées (${pct}%)`;
-
   container.innerHTML = '';
 
   const matches = st.schedule[mdIdx];
@@ -1996,18 +1665,16 @@ function renderFixtures(){
     const [home, away] = match;
     const res = results[i];
     const row = document.createElement('div');
-    const rivalry = !league.continental ? rivalryLabel(key, home, away) : null;
-    row.className = 'fixture' + (rivalry ? ' fixture-rivalry' : '');
+    row.className = 'fixture';
     const highlightFr = league.continental && !league.cupOnly && (isFrenchClub(home) || isFrenchClub(away));
     const homeLabel = favToggleHtml(home) + (highlightFr ? frenchLabel(home) : home);
     const awayLabel = favToggleHtml(away) + (highlightFr ? frenchLabel(away) : away);
     row.innerHTML = `
-      ${rivalry ? `<div class="rivalry-badge">${rivalry}</div>` : ''}
       <div class="home">${homeLabel}</div>
       <div class="score-inputs">
-        <input type="number" min="0" max="20" inputmode="numeric" class="score-home" data-idx="${i}" value="${res ? res[0] : ''}" aria-label="Buts de ${home} contre ${away}">
-        <span aria-hidden="true">–</span>
-        <input type="number" min="0" max="20" inputmode="numeric" class="score-away" data-idx="${i}" value="${res ? res[1] : ''}" aria-label="Buts de ${away} contre ${home}">
+        <input type="number" min="0" max="20" inputmode="numeric" class="score-home" data-idx="${i}" value="${res ? res[0] : ''}">
+        <span>–</span>
+        <input type="number" min="0" max="20" inputmode="numeric" class="score-away" data-idx="${i}" value="${res ? res[1] : ''}">
       </div>
       <div class="away">${awayLabel}</div>
     `;
@@ -2080,21 +1747,21 @@ function renderKnockout(key){
     if (tie.singleLeg){
       html += `
         <div class="tie-leg">
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="A" value="${tie.leg1 ? tie.leg1[0] : ''}" aria-label="Buts de ${tie.teamA}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="A" value="${tie.leg1 ? tie.leg1[0] : ''}">
           <span class="leg-label">${round.name.toUpperCase()}</span>
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="B" value="${tie.leg1 ? tie.leg1[1] : ''}" aria-label="Buts de ${tie.teamB}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="B" value="${tie.leg1 ? tie.leg1[1] : ''}">
         </div>`;
     } else {
       html += `
         <div class="tie-leg">
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="A" value="${tie.leg1 ? tie.leg1[0] : ''}" aria-label="Match aller — buts de ${tie.teamA}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="A" value="${tie.leg1 ? tie.leg1[0] : ''}">
           <span class="leg-label">ALLER</span>
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="B" value="${tie.leg1 ? tie.leg1[1] : ''}" aria-label="Match aller — buts de ${tie.teamB}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="1" data-side="B" value="${tie.leg1 ? tie.leg1[1] : ''}">
         </div>
         <div class="tie-leg">
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="2" data-side="A" value="${tie.leg2 ? tie.leg2[0] : ''}" aria-label="Match retour — buts de ${tie.teamA}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="2" data-side="A" value="${tie.leg2 ? tie.leg2[0] : ''}">
           <span class="leg-label">RETOUR</span>
-          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="2" data-side="B" value="${tie.leg2 ? tie.leg2[1] : ''}" aria-label="Match retour — buts de ${tie.teamB}">
+          <input type="number" min="0" max="20" class="ko-input" data-tie="${i}" data-leg="2" data-side="B" value="${tie.leg2 ? tie.leg2[1] : ''}">
         </div>`;
       if (agg) html += `<div class="tie-agg">Agrégat : ${tie.teamA} ${agg.aggA} – ${agg.aggB} ${tie.teamB}</div>`;
     }
@@ -2125,7 +1792,6 @@ function renderKnockout(key){
   advanceBtn.textContent = round.name === 'Finale' ? 'Terminer la compétition' : 'Passer au tour suivant';
 }
 
-/* ---------- 4. ACTIONS ---------- */
 /* ---------- Actions ---------- */
 /* ---------- Résumé des matchs simulés (scores fleuves / surprises) ---------- */
 function buildSimSummary(matches){
@@ -2144,11 +1810,6 @@ function buildSimSummary(matches){
       items.push(`⚡ Surprise : ${winner} bat ${loser} ${m.hg}-${m.ag}`);
     }
   });
-  if (pendingInjuryNews.length){
-    // On limite l'affichage pour ne pas noyer le résumé lors d'une simulation de plusieurs journées d'un coup.
-    items.push(...pendingInjuryNews.slice(-8));
-    pendingInjuryNews.length = 0;
-  }
   return items;
 }
 function showSimSummary(items, label){
@@ -2367,10 +2028,6 @@ function endSeasonAndAdvance(silent){
   const movements = {};
   DOMESTIC_KEYS.forEach(key => { movements[key] = evolveLeagueForNextSeason(key); });
 
-  // Les indices de journée repartent de zéro la saison suivante : les blessures en cours n'ont
-  // donc plus de sens et sont levées (repos estival).
-  Object.keys(injuries).forEach(team => delete injuries[team]);
-
   currentSeason++;
   DOMESTIC_KEYS.forEach(key => initLeague(key));
   LEAGUES.ucl.teams = []; LEAGUES.ucl.qualifiedCount = 0; LEAGUES.ucl.wildcardCount = 0;
@@ -2533,28 +2190,13 @@ function updateH2HResult(){
     else draws++;
   });
   const summary = `<div class="h2h-summary">${teamA} ${winsA}V — ${draws}N — ${winsB}V ${teamB}</div>`;
-
-  const { streakTeam, streakCount, biggest } = h2hStreakAndBiggest(meetings, teamA, teamB);
-  let trendHtml = '';
-  if (streakCount >= 2){
-    const opponent = streakTeam === teamA ? teamB : teamA;
-    trendHtml += `<div class="h2h-trend">🔥 ${streakTeam} enchaîne ${streakCount} victoires de suite face à ${opponent}.</div>`;
-  } else if (meetings.length >= 2 && !streakTeam){
-    trendHtml += `<div class="h2h-trend">Dernière confrontation soldée par un match nul.</div>`;
-  }
-  if (biggest && biggest.margin >= 3){
-    const winner = biggest.hg > biggest.ag ? biggest.home : biggest.away;
-    const loser = winner === biggest.home ? biggest.away : biggest.home;
-    trendHtml += `<div class="h2h-trend">📈 Plus large victoire : ${winner} ${biggest.hg}–${biggest.ag} ${loser} (J${biggest.matchday}).</div>`;
-  }
-
   const list = meetings.map(m => `
     <div class="h2h-row">
       <span class="h2h-md">J${m.matchday}</span>
       <span>${m.home} ${m.hg} – ${m.ag} ${m.away}</span>
     </div>
   `).join('');
-  resultEl.innerHTML = summary + trendHtml + `<div class="h2h-list">${list}</div>`;
+  resultEl.innerHTML = summary + `<div class="h2h-list">${list}</div>`;
 }
 
 document.getElementById('h2h-a').addEventListener('change', updateH2HResult);
@@ -2653,80 +2295,6 @@ document.getElementById('multi-sim-btn').addEventListener('click', () => {
   showSimSummary(buildSimSummary(played), `Journée ${multiMatchday + 1} — tous les championnats`);
 });
 
-/* ---------- 5. ÉDITION DES ÉQUIPES (personnalisation des forces) ---------- */
-let strengthsEditingKey = null;
-
-function openStrengthsEditor(){
-  strengthsEditingKey = DOMESTIC_KEYS.includes(activeLeague) ? activeLeague : DOMESTIC_KEYS[0];
-  renderStrengthsPanel();
-  document.getElementById('strengths-overlay').style.display = 'flex';
-}
-
-function renderStrengthsPanel(){
-  const key = strengthsEditingKey;
-  const league = LEAGUES[key];
-  const nameEl = document.getElementById('strengths-league-name');
-  nameEl.innerHTML = `<select id="strengths-league-select" style="background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:5px 8px;border-radius:4px;font-family:'Inter',sans-serif;font-size:14px;">
-    ${DOMESTIC_KEYS.map(k => `<option value="${k}" ${k === key ? 'selected' : ''}>${LEAGUES[k].name}</option>`).join('')}
-  </select>`;
-  document.getElementById('strengths-league-select').addEventListener('change', (e) => {
-    strengthsEditingKey = e.target.value;
-    renderStrengthsPanel();
-  });
-
-  const list = document.getElementById('strengths-list');
-  const teams = league.teams.slice().sort((a, b) => a.localeCompare(b));
-  list.innerHTML = teams.map(team => {
-    const val = Math.round(STRENGTHS[team] ?? 55);
-    return `
-      <div class="strength-row" data-team="${team.replace(/"/g, '&quot;')}">
-        <span>${team}</span>
-        <input type="range" min="35" max="99" value="${val}" class="strength-range">
-        <input type="number" min="35" max="99" value="${val}" class="strength-num">
-      </div>`;
-  }).join('');
-}
-
-// Synchronise curseur <-> champ numérique dans une même ligne (délégation, posée une seule fois).
-document.getElementById('strengths-list').addEventListener('input', (e) => {
-  const row = e.target.closest('.strength-row');
-  if (!row) return;
-  const range = row.querySelector('.strength-range');
-  const num = row.querySelector('.strength-num');
-  if (e.target === range){
-    num.value = range.value;
-  } else if (e.target === num){
-    let v = parseInt(num.value, 10);
-    if (isNaN(v)) return;
-    v = Math.max(35, Math.min(99, v));
-    range.value = v;
-  }
-});
-
-document.getElementById('edit-strengths-btn').addEventListener('click', openStrengthsEditor);
-document.getElementById('strengths-close-btn').addEventListener('click', () => {
-  document.getElementById('strengths-overlay').style.display = 'none';
-});
-document.getElementById('strengths-save-btn').addEventListener('click', () => {
-  document.querySelectorAll('#strengths-list .strength-row').forEach(row => {
-    const team = row.dataset.team;
-    const num = row.querySelector('.strength-num');
-    let v = parseInt(num.value, 10);
-    if (isNaN(v)) return;
-    STRENGTHS[team] = Math.max(35, Math.min(99, v));
-  });
-  saveToLocalStorage();
-  render();
-  showNotice(`Forces mises à jour pour ${LEAGUES[strengthsEditingKey].name}.`, 'info');
-});
-document.getElementById('strengths-reset-btn').addEventListener('click', () => {
-  LEAGUES[strengthsEditingKey].teams.forEach(team => {
-    if (DEFAULT_STRENGTHS[team] !== undefined) STRENGTHS[team] = DEFAULT_STRENGTHS[team];
-  });
-  renderStrengthsPanel();
-});
-
-/* ---------- 6. SAUVEGARDE ---------- */
 /* ---------- Export / Import de sauvegarde ---------- */
 function buildSavePayload(){
   return {
@@ -2737,7 +2305,6 @@ function buildSavePayload(){
     pendingCdfWinner,
     favorites: Array.from(favorites),
     strengths: STRENGTHS,
-    injuries,
     reservePools: RESERVE_POOLS,
     leagues: Object.fromEntries(Object.keys(LEAGUES).map(k => [k, {
       teams: LEAGUES[k].teams,
@@ -2758,10 +2325,6 @@ function applySavePayload(data){
   if (typeof data.pendingCdfWinner === 'string' || data.pendingCdfWinner === null) pendingCdfWinner = data.pendingCdfWinner;
   if (Array.isArray(data.favorites)) favorites = new Set(data.favorites);
   if (data.strengths && typeof data.strengths === 'object') Object.assign(STRENGTHS, data.strengths);
-  if (data.injuries && typeof data.injuries === 'object'){
-    Object.keys(injuries).forEach(t => delete injuries[t]);
-    Object.assign(injuries, data.injuries);
-  }
   if (data.reservePools && typeof data.reservePools === 'object'){
     Object.keys(RESERVE_POOLS).forEach(key => {
       if (Array.isArray(data.reservePools[key])) RESERVE_POOLS[key] = data.reservePools[key];
@@ -2769,76 +2332,46 @@ function applySavePayload(data){
   }
   document.getElementById('kicker').textContent = `SIMULATEUR // SAISON ${seasonLabel(currentSeason)}`;
 
-  const failedLeagues = [];
   Object.keys(LEAGUES).forEach(key => {
-    try {
-      const imported = data.leagues[key];
-      if (!imported) return;
-      const league = LEAGUES[key];
+    const imported = data.leagues[key];
+    if (!imported) return;
+    const league = LEAGUES[key];
 
-      if (league.continental){
-        if (Array.isArray(imported.teams) && imported.teams.length === (league.expectedTeamCount || imported.teams.length)){
-          league.teams = imported.teams;
-          league.qualifiedCount = imported.qualifiedCount || 0;
-          league.wildcardCount = imported.wildcardCount || 0;
-          initLeague(key);
-          if (Array.isArray(imported.results) && imported.results.length === state[key].results.length){
-            state[key].results = imported.results;
-          }
-          if (imported.knockout){
-            state[key].knockout = imported.knockout;
-            state[key].phase = imported.phase || 'knockout';
-            state[key].viewRound = 0;
-          }
-        }
-      } else {
-        // championnats domestiques : les effectifs peuvent avoir changé (montée/descente)
-        if (Array.isArray(imported.teams) && imported.teams.length > 0){
-          league.teams = imported.teams;
-          initLeague(key);
-        }
+    if (league.continental){
+      if (Array.isArray(imported.teams) && imported.teams.length === (league.expectedTeamCount || imported.teams.length)){
+        league.teams = imported.teams;
+        league.qualifiedCount = imported.qualifiedCount || 0;
+        league.wildcardCount = imported.wildcardCount || 0;
+        initLeague(key);
         if (Array.isArray(imported.results) && imported.results.length === state[key].results.length){
           state[key].results = imported.results;
         }
+        if (imported.knockout){
+          state[key].knockout = imported.knockout;
+          state[key].phase = imported.phase || 'knockout';
+          state[key].viewRound = 0;
+        }
       }
+    } else {
+      // championnats domestiques : les effectifs peuvent avoir changé (montée/descente)
+      if (Array.isArray(imported.teams) && imported.teams.length > 0){
+        league.teams = imported.teams;
+        initLeague(key);
+      }
+      if (Array.isArray(imported.results) && imported.results.length === state[key].results.length){
+        state[key].results = imported.results;
+      }
+    }
 
-      const st = state[key];
-      if (st.schedule.length && st.phase === 'league'){
-        st.viewMatchday = Math.max(0, findNextUnplayedMatchday(st) - 1);
-        if (st.viewMatchday < 0) st.viewMatchday = 0;
-      }
-    } catch (err) {
-      // Une entrée corrompue pour ce championnat ne doit pas bloquer la restauration des autres :
-      // on l'ignore et ce championnat repart d'un état neutre (déjà initialisé par défaut).
-      console.warn(`Sauvegarde : entrée invalide pour "${key}", championnat réinitialisé.`, err);
-      initLeague(key);
-      failedLeagues.push(LEAGUES[key].name);
+    const st = state[key];
+    if (st.schedule.length && st.phase === 'league'){
+      st.viewMatchday = Math.max(0, findNextUnplayedMatchday(st) - 1);
+      if (st.viewMatchday < 0) st.viewMatchday = 0;
     }
   });
-
-  if (failedLeagues.length){
-    showNotice(`Certaines données de sauvegarde étaient invalides (${failedLeagues.join(', ')}) — ces championnats ont été réinitialisés.`);
-  }
 }
 
 const LOCAL_STORAGE_KEY = 'simulateur-championnats-save';
-
-// Petit bandeau d'avertissement non bloquant (remplace les échecs silencieux de restauration).
-function showNotice(message, tone){
-  let el = document.getElementById('app-notice');
-  if (!el){
-    el = document.createElement('div');
-    el.id = 'app-notice';
-    el.className = 'app-notice';
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.toggle('warn', tone !== 'info');
-  el.style.display = '';
-  clearTimeout(showNotice._t);
-  showNotice._t = setTimeout(() => { el.style.display = 'none'; }, 8000);
-}
-
 function saveToLocalStorage(){
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(buildSavePayload()));
@@ -2847,29 +2380,12 @@ function saveToLocalStorage(){
   }
 }
 function loadFromLocalStorage(){
-  let raw;
   try {
-    raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-  } catch (err) {
-    return false; // localStorage indisponible (navigation privée, permissions…)
-  }
-  if (!raw) return false;
-
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (err) {
-    console.warn('Sauvegarde locale illisible (JSON invalide) — nouvelle partie démarrée.', err);
-    showNotice('La sauvegarde locale était illisible : une nouvelle partie a été démarrée.');
-    return false;
-  }
-
-  try {
-    applySavePayload(data);
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return false;
+    applySavePayload(JSON.parse(raw));
     return true;
   } catch (err) {
-    console.warn('Sauvegarde locale incompatible avec cette version — nouvelle partie démarrée.', err);
-    showNotice('La sauvegarde locale était incompatible avec cette version : une nouvelle partie a été démarrée.');
     return false;
   }
 }
@@ -2910,7 +2426,6 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   e.target.value = '';
 });
 
-/* ---------- 7. HISTORIQUE ---------- */
 /* ---------- Rendu de l'historique des saisons ---------- */
 function computePalmares(){
   const table = {};
@@ -3000,7 +2515,6 @@ const LIVE_GOAL_PHRASES = [
 
 function randomSurname(){ return LIVE_SURNAMES[Math.floor(Math.random() * LIVE_SURNAMES.length)]; }
 
-/* ---------- 8. EFFECTIFS, BUTEURS & MODE DIRECT ---------- */
 /* ---------- Effectifs réels (à compléter) ----------
    PLAYERS["Nom EXACT du club"] = [{ name:"Nom du joueur", pos:"GK"|"DEF"|"MIL"|"ATT", star:true? }, ...]
    - "pos" pondère les chances de marquer/écoper d'un carton (un attaquant marque plus souvent qu'un défenseur).
@@ -3015,303 +2529,337 @@ const PLAYERS = {
     { pos:"DEF", name:"Willian Pacho" },
     { pos:"DEF", name:"Nuno Mendes" },
     { pos:"DEF", name:"Ilya Zabarnyi" },
+    { pos:"DEF", name:"Lucas Hernández" },
     { pos:"MIL", name:"Vitinha" },
-    { pos:"MIL", name:"Warren Zaïre-Emery" },
     { pos:"MIL", name:"Fabián Ruiz" },
+    { pos:"MIL", name:"Désiré Doué" },
+    { pos:"MIL", name:"Warren Zaïre-Emery" },
     { pos:"MIL", name:"João Neves" },
     { pos:"ATT", name:"Ousmane Dembélé" },
     { pos:"ATT", name:"Khvicha Kvaratskhelia" },
-    { pos:"ATT", name:"Désiré Doué" },
-    { pos:"ATT", name:"Ferran Torres" }
+    { pos:"ATT", name:"Ferran Torres" },
+    { pos:"ATT", name:"Mika Godts" },
+    { pos:"ATT", name:"Senny Mayulu" }
   ],
   "RC Lens": [
     { pos:"GK", name:"Robin Risser" },
-    { pos:"GK", name:"Mathieu Gorgelin" },
     { pos:"DEF", name:"Jean-Clair Todibo" },
     { pos:"DEF", name:"Maik Nawrocki" },
     { pos:"DEF", name:"Michał Skóraś" },
     { pos:"DEF", name:"Jonathan Gradit" },
     { pos:"DEF", name:"Ismaëlo Ganiou" },
-    { pos:"MIL", name:"Matthieu Udol" },
-    { pos:"MIL", name:"Yacine Titraoui" },
-    { pos:"MIL", name:"Michaël Cuisance" },
+    { pos:"DEF", name:"Souleymane Sagnan" },
     { pos:"MIL", name:"Ruben Aguilar" },
-    { pos:"MIL", name:"Amadou Haïdara" },
+    { pos:"MIL", name:"Andrija Bulatović" },
+    { pos:"MIL", name:"Yacine Titraoui" },
+    { pos:"MIL", name:"Thorgan Hazard" },
+    { pos:"MIL", name:"Matthieu Udol" },
+    { pos:"MIL", name:"Abdallah Sima" },
+    { pos:"MIL", name:"Amadou Haidara" },
+    { pos:"MIL", name:"Michaël Cuisance" },
     { pos:"ATT", name:"Florian Thauvin" },
+    { pos:"ATT", name:"Odsonne Édouard" },
     { pos:"ATT", name:"Franjo Ivanović" },
-    { pos:"ATT", name:"Odsonne Édouard" }
+    { pos:"ATT", name:"Florian Sotoca" }
   ],
   "Olympique de Marseille": [
-    { pos:"GK", name:"Gerónimo Rulli" },
     { pos:"GK", name:"Jeffrey de Lange" },
     { pos:"DEF", name:"Nayef Aguerd" },
-    { pos:"DEF", name:"Leonardo Balerdi" },
-    { pos:"DEF", name:"CJ Egan-Riley" },
-    { pos:"DEF", name:"Benjamin Pavard" },
+    { pos:"DEF", name:"Derek Cornelius" },
+    { pos:"DEF", name:"Timothy Weah" },
     { pos:"DEF", name:"Emerson" },
-    { pos:"MIL", name:"Pierre-Emile Højbjerg" },
+    { pos:"DEF", name:"Conrad Egan-Riley" },
     { pos:"MIL", name:"Angel Gomes" },
-    { pos:"MIL", name:"Arthur Vermeeren" },
+    { pos:"MIL", name:"Himad Abdelli" },
+    { pos:"MIL", name:"Igor Paixão" },
     { pos:"MIL", name:"Geoffrey Kondogbia" },
+    { pos:"MIL", name:"Pierre-Emile Højbjerg" },
     { pos:"ATT", name:"Amine Gouiri" },
-    { pos:"ATT", name:"Igor Paixão" },
-    { pos:"ATT", name:"Timothy Weah" },
-    { pos:"ATT", name:"Hamed Traoré" }
+    { pos:"ATT", name:"Neal Maupay" },
+    { pos:"ATT", name:"Faris Moumbagna" },
+    { pos:"ATT", name:"Keyliane Abdallah" }
   ],
   "Olympique Lyonnais": [
     { pos:"GK", name:"Dominik Greif" },
-    { pos:"GK", name:"Rémy Descamps" },
-    { pos:"DEF", name:"Ainsley Maitland-Niles" },
-    { pos:"DEF", name:"Moussa Niakhaté" },
     { pos:"DEF", name:"Nicolás Tagliafico" },
+    { pos:"DEF", name:"Zachary Athekame" },
+    { pos:"DEF", name:"Abner" },
+    { pos:"DEF", name:"Moussa Niakhaté" },
+    { pos:"DEF", name:"Felix Bacher" },
     { pos:"DEF", name:"Clinton Mata" },
-    { pos:"DEF", name:"Ruben Kluivert" },
-    { pos:"MIL", name:"Corentin Tolisso" },
-    { pos:"MIL", name:"Tyler Morton" },
-    { pos:"MIL", name:"Tanner Tessmann" },
     { pos:"MIL", name:"Mads Bidstrup" },
-    { pos:"ATT", name:"Malick Fofana" },
-    { pos:"ATT", name:"Ernest Nuamah" },
+    { pos:"MIL", name:"Tanner Tessmann" },
+    { pos:"MIL", name:"Ernest Nuamah" },
+    { pos:"MIL", name:"Corentin Tolisso" },
+    { pos:"MIL", name:"Pavel Šulc" },
+    { pos:"MIL", name:"Malick Fofana" },
+    { pos:"MIL", name:"Tyler Morton" },
+    { pos:"MIL", name:"Julien Duranville" },
     { pos:"ATT", name:"Loïs Openda" },
-    { pos:"ATT", name:"Jérémie Duranville" }
+    { pos:"ATT", name:"Keito Nakamura" }
   ],
   "LOSC Lille": [
     { pos:"GK", name:"Berke Özer" },
-    { pos:"GK", name:"Arnaud Bodart" },
-    { pos:"DEF", name:"Aïssa Mandi" },
-    { pos:"DEF", name:"Alexsandro" },
-    { pos:"DEF", name:"Tiago Santos" },
-    { pos:"DEF", name:"Chancel Mbemba" },
     { pos:"DEF", name:"Nathan Ngoy" },
-    { pos:"MIL", name:"Benjamin André" },
-    { pos:"MIL", name:"Ayyoub Bouaddi" },
-    { pos:"MIL", name:"Nabil Bentaleb" },
+    { pos:"DEF", name:"Alexsandro Ribeiro" },
+    { pos:"DEF", name:"Romain Perraud" },
+    { pos:"DEF", name:"Tiago Santos" },
+    { pos:"DEF", name:"Calvin Verdonk" },
+    { pos:"MIL", name:"Dilane Bakwa" },
+    { pos:"MIL", name:"Ethan Mbappé" },
+    { pos:"MIL", name:"Hákon Haraldsson" },
+    { pos:"MIL", name:"Osame Sahraoui" },
+    { pos:"MIL", name:"Maurits Kjærgaard" },
     { pos:"MIL", name:"Ngal'ayel Mukau" },
-    { pos:"MIL", name:"Gaëtan Perrin" },
-    { pos:"ATT", name:"Hamza Igamane" },
-    { pos:"ATT", name:"Edon Zhegrova" },
-    { pos:"ATT", name:"Matías Fernández-Pardo" }
+    { pos:"MIL", name:"Başar Önal" },
+    { pos:"MIL", name:"Benjamin André" },
+    { pos:"ATT", name:"Olivier Giroud" },
+    { pos:"ATT", name:"Ayase Ueda" },
+    { pos:"ATT", name:"Gaëtan Perrin" }
   ],
   "Stade Rennais": [
     { pos:"GK", name:"Brice Samba" },
-    { pos:"GK", name:"Nicolas Lemaître" },
-    { pos:"DEF", name:"Anthony Rouault" },
-    { pos:"DEF", name:"Lilian Brassier" },
     { pos:"DEF", name:"Charlie Cresswell" },
-    { pos:"DEF", name:"Alidu Seidu" },
+    { pos:"DEF", name:"Bryan Reynolds" },
+    { pos:"DEF", name:"Anthony Rouault" },
     { pos:"DEF", name:"Quentin Merlin" },
-    { pos:"MIL", name:"Seko Fofana" },
-    { pos:"MIL", name:"Baptiste Santamaria" },
-    { pos:"MIL", name:"Djaoui Cissé" },
-    { pos:"MIL", name:"Abdelhamid Aït Boudlal" },
+    { pos:"DEF", name:"Przemysław Frankowski" },
+    { pos:"MIL", name:"Ludovic Blas" },
+    { pos:"MIL", name:"Sebastian Szymański" },
+    { pos:"MIL", name:"Valentin Rongier" },
+    { pos:"MIL", name:"Adrien Thomasson" },
+    { pos:"MIL", name:"Mahdi Camara" },
+    { pos:"MIL", name:"Mahamadou Nagida" },
     { pos:"ATT", name:"Esteban Lepaul" },
-    { pos:"ATT", name:"Ibrahim Salah" },
-    { pos:"ATT", name:"Ludovic Blas" },
-    { pos:"ATT", name:"Arnaud Kalimuendo" }
+    { pos:"ATT", name:"Mousa Al-Tamari" },
+    { pos:"ATT", name:"Eliezer Mayenda" },
+    { pos:"ATT", name:"Boulaye Dia" },
+    { pos:"ATT", name:"Issa Soumaré" }
   ],
   "RC Strasbourg": [
-    { pos:"GK", name:"Karl-Johan Johnsson" },
+    { pos:"GK", name:"Filip Jørgensen" },
     { pos:"DEF", name:"Andrew Omobamidele" },
-    { pos:"DEF", name:"Guela Doué" },
-    { pos:"DEF", name:"Valentin Barco" },
+    { pos:"DEF", name:"Jeyland Mitchell" },
     { pos:"DEF", name:"Ismaël Doukouré" },
-    { pos:"DEF", name:"Soumaïla Coulibaly" },
+    { pos:"DEF", name:"Genesis Antwi" },
+    { pos:"DEF", name:"Guela Doué" },
+    { pos:"DEF", name:"Oso" },
     { pos:"MIL", name:"Diego Moreira" },
+    { pos:"MIL", name:"Giovanni Reyna" },
     { pos:"MIL", name:"Sebastian Nanasi" },
-    { pos:"MIL", name:"Mathis Amougou" },
-    { pos:"MIL", name:"Junior Mwanga" },
-    { pos:"ATT", name:"Emanuel Emegha" },
-    { pos:"ATT", name:"Dilane Bakwa" },
+    { pos:"MIL", name:"Dário Essugo" },
+    { pos:"MIL", name:"Pape Demba Diop" },
+    { pos:"MIL", name:"Diogo Sousa" },
+    { pos:"MIL", name:"Gessime Yassine" },
+    { pos:"ATT", name:"Joaquín Panichelli" },
     { pos:"ATT", name:"Sékou Mara" },
-    { pos:"ATT", name:"David Fofana" },
-    { pos:"ATT", name:"Aaron Anselmino" }
+    { pos:"ATT", name:"Jacobo Ortega" },
+    { pos:"ATT", name:"Conrad Harder" }
   ],
   "Toulouse FC": [
     { pos:"GK", name:"Guillaume Restes" },
-    { pos:"GK", name:"Àlex Dominguez" },
     { pos:"DEF", name:"Rasmus Nicolaisen" },
     { pos:"DEF", name:"Mark McKenzie" },
-    { pos:"DEF", name:"Djibril Sidibé" },
-    { pos:"DEF", name:"Dayann Methalie" },
-    { pos:"DEF", name:"Nicolas Wasbauer" },
-    { pos:"MIL", name:"Aron Donnum" },
+    { pos:"DEF", name:"Christ Tapé" },
+    { pos:"DEF", name:"Rafik Messali" },
+    { pos:"DEF", name:"Ismail Diallo" },
+    { pos:"MIL", name:"Alexis Vossah" },
+    { pos:"MIL", name:"Julián Vignolo" },
+    { pos:"MIL", name:"Thomas Jørgensen" },
+    { pos:"MIL", name:"Santiago Hidalgo" },
+    { pos:"MIL", name:"Yann Gboho" },
     { pos:"MIL", name:"Cristian Cásseres" },
     { pos:"MIL", name:"Niklas Schmidt" },
-    { pos:"MIL", name:"Vincent Sierro" },
-    { pos:"ATT", name:"Ibrahim Sissoko" },
-    { pos:"ATT", name:"Yann Gboho" },
-    { pos:"ATT", name:"Christ Tapé" },
-    { pos:"ATT", name:"Ilyas Azizi" }
+    { pos:"MIL", name:"Ilyas Azizi" },
+    { pos:"ATT", name:"Jacen Russell-Rowe" },
+    { pos:"ATT", name:"Sion Oppong" },
+    { pos:"ATT", name:"Casper Tengstedt" }
   ],
   "AS Monaco": [
-    { pos:"GK", name:"Philipp Köhn" },
-    { pos:"GK", name:"Radosław Majecki" },
-    { pos:"DEF", name:"Vanderson" },
-    { pos:"DEF", name:"Jordan Teze" },
+    { pos:"GK", name:"Lukáš Hrádecký" },
     { pos:"DEF", name:"Thilo Kehrer" },
-    { pos:"DEF", name:"Caio Henrique" },
-    { pos:"DEF", name:"Wilfried Singo" },
-    { pos:"MIL", name:"Paul Pogba" },
-    { pos:"MIL", name:"Lamine Camara" },
-    { pos:"MIL", name:"Eliesse Ben Seghir" },
-    { pos:"MIL", name:"Aleksandr Golovin" },
+    { pos:"DEF", name:"Christian Mawissa" },
+    { pos:"DEF", name:"Eric Dier" },
+    { pos:"DEF", name:"Flávio Nazinho" },
+    { pos:"DEF", name:"Sadibou Sané" },
+    { pos:"MIL", name:"Vanderson" },
+    { pos:"MIL", name:"Jordan Teze" },
     { pos:"MIL", name:"Denis Zakaria" },
-    { pos:"ATT", name:"Folarin Balogun" },
-    { pos:"ATT", name:"Takumi Minamino" },
-    { pos:"ATT", name:"Mika Biereth" }
+    { pos:"MIL", name:"Lamine Camara" },
+    { pos:"MIL", name:"Aleksandr Golovin" },
+    { pos:"MIL", name:"Maghnes Akliouche" },
+    { pos:"MIL", name:"Stanis Idumbo" },
+    { pos:"MIL", name:"Takumi Minamino" },
+    { pos:"ATT", name:"Paris Brunner" },
+    { pos:"ATT", name:"Matthis Abline" },
+    { pos:"ATT", name:"Mika Biereth" },
+    { pos:"ATT", name:"Folarin Balogun" }
   ],
   "Stade Brestois": [
-    { pos:"GK", name:"Grégoire Coudert" },
-    { pos:"GK", name:"Noah Jauny" },
-    { pos:"DEF", name:"Brendan Chardonnet" },
-    { pos:"DEF", name:"Julien Le Cardinal" },
-    { pos:"DEF", name:"Justin Bourgault" },
+    { pos:"GK", name:"Egil Selvik" },
+    { pos:"DEF", name:"Bradley Locko" },
+    { pos:"DEF", name:"Gautier Lloris" },
     { pos:"DEF", name:"Kenny Lala" },
-    { pos:"DEF", name:"Luck Zogbé" },
-    { pos:"MIL", name:"Mahdi Camara" },
+    { pos:"DEF", name:"Raphaël Le Guen" },
+    { pos:"MIL", name:"Mamady Diambou" },
+    { pos:"MIL", name:"Joseph Nonge" },
     { pos:"MIL", name:"Hugo Magnetti" },
-    { pos:"MIL", name:"Romain Del Castillo" },
-    { pos:"MIL", name:"Hianga'a Mbock" },
-    { pos:"MIL", name:"Hamidou Makalou" },
-    { pos:"ATT", name:"Kamory Doumbia" },
-    { pos:"ATT", name:"Mama Baldé" },
-    { pos:"ATT", name:"Axel Camblan" }
+    { pos:"MIL", name:"Pathé Mboup" },
+    { pos:"MIL", name:"Joris Chotard" },
+    { pos:"MIL", name:"Mama Baldé" },
+    { pos:"MIL", name:"Kamory Doumbia" },
+    { pos:"MIL", name:"Lucas Tousart" },
+    { pos:"ATT", name:"Romain Del Castillo" },
+    { pos:"ATT", name:"Giovani Versini" },
+    { pos:"ATT", name:"Ludovic Ajorque" }
   ],
   "Angers SCO": [
-    { pos:"GK", name:"Hervé Koffi" },
-    { pos:"GK", name:"Melvin Zinga" },
-    { pos:"DEF", name:"Emmanuel Biumla" },
-    { pos:"DEF", name:"Jordan Lefort" },
-    { pos:"DEF", name:"Abdoulaye Bamba" },
+    { pos:"GK", name:"Anthony Lopes" },
     { pos:"DEF", name:"Carlens Arcus" },
     { pos:"DEF", name:"Ousmane Camara" },
-    { pos:"MIL", name:"Haris Belkebla" },
+    { pos:"DEF", name:"Joseph Kalulu" },
+    { pos:"DEF", name:"Jordan Lefort" },
     { pos:"MIL", name:"Louis Mouton" },
-    { pos:"MIL", name:"Pierrick Cappelle" },
+    { pos:"MIL", name:"Branco van den Boomen" },
+    { pos:"MIL", name:"Harouna Djibirin" },
+    { pos:"MIL", name:"Yassine Belkhdim" },
     { pos:"MIL", name:"Jim Allevinah" },
-    { pos:"MIL", name:"Marius Courcoul" },
-    { pos:"ATT", name:"Sidiki Chérif" },
-    { pos:"ATT", name:"Guédé Nadje" },
-    { pos:"ATT", name:"Yassin Belkhdim" }
+    { pos:"MIL", name:"Anthony Bermont" },
+    { pos:"MIL", name:"Lillian Rao-Lisoa" },
+    { pos:"MIL", name:"Bané Diatta" },
+    { pos:"ATT", name:"Usman Simbakoli" },
+    { pos:"ATT", name:"Prosper Peter" },
+    { pos:"ATT", name:"Amine Sbaï" },
+    { pos:"ATT", name:"Amine El Ouazzani" }
   ],
   "FC Lorient": [
-    { pos:"GK", name:"Bingourou Kamara" },
-    { pos:"GK", name:"Benjamin Leroy" },
-    { pos:"DEF", name:"Isaak Touré" },
+    { pos:"GK", name:"Yvon Mvogo" },
     { pos:"DEF", name:"Montassar Talbi" },
-    { pos:"DEF", name:"Gédéon Kalulu" },
-    { pos:"DEF", name:"Darlin Yongwa" },
-    { pos:"DEF", name:"Formose Mendy" },
-    { pos:"MIL", name:"Laurent Abergel" },
-    { pos:"MIL", name:"Jean-Victor Makengo" },
-    { pos:"MIL", name:"Théo Le Bris" },
+    { pos:"DEF", name:"Nathaniel Adjei" },
+    { pos:"DEF", name:"Alec Georgen" },
     { pos:"MIL", name:"Noah Cadiou" },
-    { pos:"ATT", name:"Bamba Dieng" },
-    { pos:"ATT", name:"Pablo Pagis" },
-    { pos:"ATT", name:"Mohamed Bamba" },
-    { pos:"ATT", name:"Sambou Soumano" }
+    { pos:"MIL", name:"Théo Le Bris" },
+    { pos:"MIL", name:"Jean-Victor Makengo" },
+    { pos:"MIL", name:"Gabin Bernardeau" },
+    { pos:"MIL", name:"Mamadou Koné" },
+    { pos:"MIL", name:"Arsène Kouassi" },
+    { pos:"MIL", name:"Arthur Avom" },
+    { pos:"MIL", name:"Noah Mbamba" },
+    { pos:"MIL", name:"Panos Katseris" },
+    { pos:"ATT", name:"Isak Jensen" },
+    { pos:"ATT", name:"Aiyegun Tosin" },
+    { pos:"ATT", name:"Ibrahima Baldé" },
+    { pos:"ATT", name:"Souleymane Faye" }
   ],
   "Paris FC": [
     { pos:"GK", name:"Kevin Trapp" },
-    { pos:"GK", name:"Obed Nkambadio" },
+    { pos:"DEF", name:"Moustapha Mbow" },
     { pos:"DEF", name:"Otávio" },
-    { pos:"DEF", name:"Timothée Kolodziejczak" },
-    { pos:"DEF", name:"Thibault De Smet" },
     { pos:"DEF", name:"Hamari Traoré" },
+    { pos:"DEF", name:"Samir Chergui" },
     { pos:"DEF", name:"Diego Coppola" },
+    { pos:"MIL", name:"Pablo Pagis" },
+    { pos:"MIL", name:"Patrick Zabi" },
+    { pos:"MIL", name:"Ilan Kebbal" },
+    { pos:"MIL", name:"Luca Koleosho" },
+    { pos:"MIL", name:"Adama Camara" },
     { pos:"MIL", name:"Maxime Lopez" },
+    { pos:"MIL", name:"Rudy Matondo" },
+    { pos:"MIL", name:"Moses Simon" },
     { pos:"MIL", name:"Pierre Lees-Melou" },
-    { pos:"MIL", name:"Marshall Munetsi" },
-    { pos:"MIL", name:"Nhoa Sangui" },
-    { pos:"ATT", name:"Jonathan Ikoné" },
-    { pos:"ATT", name:"Willem Geubbels" },
-    { pos:"ATT", name:"Jean-Philippe Krasso" },
-    { pos:"ATT", name:"Lassine Sinayoko" }
+    { pos:"ATT", name:"Lassine Sinayoko" },
+    { pos:"ATT", name:"Jonathan Ikoné" }
   ],
   "Le Havre AC": [
-    { pos:"GK", name:"Mory Diaw" },
     { pos:"GK", name:"Lionel Mpasi" },
-    { pos:"DEF", name:"Étienne Youté" },
-    { pos:"DEF", name:"Gautier Lloris" },
-    { pos:"DEF", name:"Thomas Delaine" },
-    { pos:"DEF", name:"Loïc Nego" },
-    { pos:"DEF", name:"Oualid El Hajjam" },
-    { pos:"MIL", name:"Abdoulaye Touré" },
+    { pos:"DEF", name:"Ahmed Touba" },
+    { pos:"DEF", name:"Junior Mwanga" },
+    { pos:"DEF", name:"Elias Jelert" },
+    { pos:"DEF", name:"Ayumu Seko" },
+    { pos:"MIL", name:"Amir Richardson" },
+    { pos:"MIL", name:"Josh Maja" },
     { pos:"MIL", name:"Rassoul Ndiaye" },
-    { pos:"MIL", name:"Yassine Kechta" },
+    { pos:"MIL", name:"Kaito Mizuta" },
     { pos:"MIL", name:"Simon Ebonog" },
-    { pos:"ATT", name:"Issa Soumaré" },
-    { pos:"ATT", name:"Félix Mambimbi" },
-    { pos:"ATT", name:"Kandet Diawara" },
-    { pos:"ATT", name:"Ruben Londja" }
+    { pos:"MIL", name:"Sota Nakamura" },
+    { pos:"MIL", name:"Timothée Pembélé" },
+    { pos:"ATT", name:"Felix Mambimbi" },
+    { pos:"ATT", name:"Ally Samatta" },
+    { pos:"ATT", name:"Rayan Fofana" }
   ],
   "OGC Nice": [
-    { pos:"GK", name:"Bartosz Żelazowski" },
-    { pos:"GK", name:"Maxime Dupé" },
-    { pos:"DEF", name:"Dante" },
-    { pos:"DEF", name:"Jonathan Clauss" },
+    { pos:"GK", name:"Yehvann Diouf" },
+    { pos:"DEF", name:"Mohamed Abdelmonem" },
     { pos:"DEF", name:"Melvin Bard" },
-    { pos:"DEF", name:"Moïse Bombito" },
     { pos:"DEF", name:"Antoine Mendy" },
-    { pos:"MIL", name:"Hicham Boudaoui" },
-    { pos:"MIL", name:"Pablo Rosario" },
-    { pos:"MIL", name:"Morgan Sanson" },
-    { pos:"MIL", name:"Tanguy Ndombélé" },
-    { pos:"ATT", name:"Jeremie Boga" },
-    { pos:"ATT", name:"Evann Guessand" },
-    { pos:"ATT", name:"Mohamed-Ali Cho" },
-    { pos:"ATT", name:"Badredine Bouanani" }
+    { pos:"DEF", name:"Xavier Mandza" },
+    { pos:"MIL", name:"Ali Abdi" },
+    { pos:"MIL", name:"Gauthier Hein" },
+    { pos:"MIL", name:"Sofiane Diop" },
+    { pos:"MIL", name:"Elye Wahi" },
+    { pos:"MIL", name:"Axel Witsel" },
+    { pos:"MIL", name:"Nathan Ngoumou" },
+    { pos:"MIL", name:"Djibril Coulibaly" },
+    { pos:"MIL", name:"Youssouf Ndayishimiye" },
+    { pos:"MIL", name:"Jonathan Clauss" },
+    { pos:"ATT", name:"Mohamed Amoura" },
+    { pos:"ATT", name:"Kevin Carlos" }
   ],
   "AJ Auxerre": [
-    { pos:"GK", name:"Donovan Léon" },
-    { pos:"GK", name:"Théo de Percin" },
+    { pos:"GK", name:"Mamadou Diop" },
+    { pos:"DEF", name:"Christ Makosso" },
     { pos:"DEF", name:"Sinaly Diomandé" },
-    { pos:"DEF", name:"Gideon Mensah" },
-    { pos:"DEF", name:"Gabriel Osho" },
-    { pos:"DEF", name:"Francisco Sierralta" },
+    { pos:"DEF", name:"Lamine Sy" },
     { pos:"DEF", name:"Clément Akpa" },
-    { pos:"MIL", name:"Elisha Owusu" },
-    { pos:"MIL", name:"Assane Dioussé" },
-    { pos:"MIL", name:"Nathan Buayi-Kiala" },
-    { pos:"ATT", name:"Ibrahim Osman" },
-    { pos:"ATT", name:"Ado Onaiwu" },
-    { pos:"ATT", name:"Florian Ayé" },
-    { pos:"ATT", name:"Josué Casimir" },
-    { pos:"ATT", name:"Theo Bair" }
+    { pos:"DEF", name:"Elikya Legros" },
+    { pos:"MIL", name:"Rémy Labeau-Lascary" },
+    { pos:"MIL", name:"Kévin Danois" },
+    { pos:"MIL", name:"Naouirou Ahamada" },
+    { pos:"MIL", name:"Danny Namaso" },
+    { pos:"MIL", name:"Pierre Ekwah" },
+    { pos:"MIL", name:"Romain Faivre" },
+    { pos:"MIL", name:"Arthur Piedfort" },
+    { pos:"MIL", name:"Aristide Zossou" },
+    { pos:"ATT", name:"Cameron Archer" }
   ],
   "ES Troyes AC": [
-    { pos:"GK", name:"Gauthier Gallon" },
-    { pos:"GK", name:"Rahim Bouallak" },
-    { pos:"DEF", name:"Amine Monfray" },
-    { pos:"DEF", name:"Lassana Maronnier" },
-    { pos:"DEF", name:"Adam Ouzenadji" },
-    { pos:"DEF", name:"Ryan Baya" },
-    { pos:"DEF", name:"Hamza Gambor" },
-    { pos:"MIL", name:"Marvin Phliponeau" },
-    { pos:"MIL", name:"Mathieu Adeline" },
-    { pos:"MIL", name:"Alan Chavalerin" },
-    { pos:"MIL", name:"Renaud Ripart" },
-    { pos:"ATT", name:"Théo Bentayeb" },
-    { pos:"ATT", name:"Modibo El Idrissy" },
-    { pos:"ATT", name:"Kader Assoumou" },
-    { pos:"ATT", name:"Mathis Detourbet" }
+    { pos:"GK", name:"Zacharie Boucher" },
+    { pos:"DEF", name:"Lucas Maronnier" },
+    { pos:"DEF", name:"Anis Ouzenadji" },
+    { pos:"DEF", name:"Paolo Gozzi" },
+    { pos:"DEF", name:"Adrien Monfray" },
+    { pos:"DEF", name:"Ismaël Boura" },
+    { pos:"DEF", name:"Thierno Baldé" },
+    { pos:"MIL", name:"Kandet Diawara" },
+    { pos:"MIL", name:"Mouhamed Diop" },
+    { pos:"MIL", name:"Merwan Ifnaoui" },
+    { pos:"MIL", name:"Iron Gomis" },
+    { pos:"MIL", name:"Antoine Mille" },
+    { pos:"MIL", name:"Dermane Karim" },
+    { pos:"ATT", name:"Jérémy Le Douaron" },
+    { pos:"ATT", name:"Ibrahim Traoré" },
+    { pos:"ATT", name:"Renaud Ripart" },
+    { pos:"ATT", name:"Amadou Diakité" }
   ],
   "Le Mans FC": [
-    { pos:"GK", name:"Nicolas Kocik" },
-    { pos:"GK", name:"Elias Hatfout" },
-    { pos:"DEF", name:"Salomon Yohou" },
-    { pos:"DEF", name:"Lucas Buades" },
+    { pos:"GK", name:"Ewan Hatfout" },
+    { pos:"DEF", name:"Harold Voyer" },
+    { pos:"DEF", name:"Samuel Yohou" },
+    { pos:"DEF", name:"Djibril Sidibé" },
     { pos:"DEF", name:"Théo Eyoum" },
-    { pos:"DEF", name:"Hervé Voyer" },
-    { pos:"DEF", name:"Ilan Cossier" },
+    { pos:"DEF", name:"Yasser Larouci" },
+    { pos:"MIL", name:"Edwin Quarshie" },
+    { pos:"MIL", name:"Alexandre Lauray" },
+    { pos:"MIL", name:"Jean Vercruysse" },
+    { pos:"MIL", name:"Lucas Buades" },
     { pos:"MIL", name:"Lucas Calodat" },
-    { pos:"MIL", name:"Alexy Lauray" },
-    { pos:"MIL", name:"Émile Quarshie" },
     { pos:"MIL", name:"Milan Robin" },
-    { pos:"ATT", name:"Dame Gueye" },
+    { pos:"MIL", name:"Martin Rossignol" },
+    { pos:"ATT", name:"Billal Brahimi" },
     { pos:"ATT", name:"Antoine Rabillard" },
-    { pos:"ATT", name:"William Harhouz" },
-    { pos:"ATT", name:"Erwan Colas" }
+    { pos:"ATT", name:"Habib Diallo" },
+    { pos:"ATT", name:"Louis Mafouta" },
+    { pos:"ATT", name:"William Harhouz" }
   ]
 };
 
@@ -3377,34 +2925,6 @@ function pickWeightedPlayer(team, weights){
 }
 function pickScorer(team){ return pickWeightedPlayer(team, GOAL_WEIGHT); }
 function pickCarded(team){ return pickWeightedPlayer(team, CARD_WEIGHT); }
-function pickInjured(team){ return pickWeightedPlayer(team, {}); }
-
-/* ---------- Blessures ---------- */
-// injuries[team] = { player, key, untilMdIdx } — le club est pénalisé tant que la prochaine
-// journée jouée (dans son championnat domestique) n'a pas dépassé untilMdIdx.
-const injuries = {};
-const INJURY_CHANCE = 0.035; // ~3.5% de risque de blessure par équipe et par match domestique
-const INJURY_PENALTY = -2.5; // malus de force effective tant que le joueur est forfait
-const pendingInjuryNews = [];
-
-function injuryModifier(team, key, mdIdx){
-  const inj = injuries[team];
-  if (!inj || key == null || mdIdx == null) return 0;
-  if (inj.key !== key || mdIdx > inj.untilMdIdx) return 0;
-  return INJURY_PENALTY;
-}
-
-function maybeInjure(team, key, mdIdx){
-  if (!DOMESTIC_KEYS.includes(key) || mdIdx == null) return;
-  const existing = injuries[team];
-  if (existing && existing.key === key && mdIdx <= existing.untilMdIdx) return; // déjà blessé
-  if (Math.random() > INJURY_CHANCE) return;
-  const player = pickInjured(team);
-  const duration = 1 + Math.floor(Math.random() * 3); // forfait pour 1 à 3 journées
-  injuries[team] = { player, key, untilMdIdx: mdIdx + duration };
-  pendingInjuryNews.push(`🤕 ${player} (${team}) se blesse — forfait pour ${duration} journée${duration > 1 ? 's' : ''}.`);
-  if (pendingInjuryNews.length > 20) pendingInjuryNews.shift();
-}
 
 /* ---------- Classement des buteurs (saison en cours, par championnat) ---------- */
 function creditGoal(key, team, name){
@@ -3785,7 +3305,6 @@ document.getElementById('live-skip-btn').addEventListener('click', () => {
 document.getElementById('live-close-btn').addEventListener('click', () => closeLiveOverlay(true));
 document.getElementById('live-finish-btn').addEventListener('click', () => closeLiveOverlay(false));
 
-/* ---------- 9. PLANNING HEBDOMADAIRE ---------- */
 /* ---------- Planning hebdomadaire : répartition des tâches sur Lundi -> Dimanche ---------- */
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const CDF_ROUND_ORDER = ['Seizièmes de finale', '8es de finale', 'Quarts de finale', 'Demi-finales', 'Finale'];
@@ -3874,22 +3393,6 @@ function renderWeeklyPlan(){
   }).join('');
 }
 
-/* ---------- 10. THÈME ---------- */
-/* ---------- Thème clair / sombre ---------- */
-const THEME_KEY = 'simu-championnats-theme';
-function applyTheme(theme){
-  document.documentElement.setAttribute('data-theme', theme);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = theme === 'light' ? '🌙 Thème sombre' : '☀️ Thème clair';
-  try { localStorage.setItem(THEME_KEY, theme); } catch(e){}
-}
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  applyTheme(current === 'light' ? 'dark' : 'light');
-});
-applyTheme((() => { try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch(e){ return 'dark'; } })());
-
-/* ---------- 11. RENDU GLOBAL ---------- */
 /* ---------- Rendu global ---------- */
 function render(){
   document.getElementById('kicker').textContent = `SIMULATEUR // SAISON ${seasonLabel(currentSeason)}`;
