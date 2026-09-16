@@ -658,6 +658,23 @@
   /* ---------- Favoris ---------- */
   .fav-toggle{cursor:pointer;user-select:none;font-size:13px;display:inline-block;margin-right:3px;}
   .fav-toggle:hover{transform:scale(1.2);}
+
+  /* ---------- Édition des forces des clubs ---------- */
+  #strengths-list{max-height:52vh; overflow-y:auto;}
+  .strength-row{
+    display:grid; grid-template-columns:1fr auto 90px; align-items:center; gap:10px;
+    padding:6px 0; border-bottom:1px solid var(--panel-2); font-size:13px;
+  }
+  .strength-row:last-child{border-bottom:none;}
+  .strength-row input[type="range"]{width:100%;}
+  .strength-row .strength-value{
+    font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--amber);
+    text-align:right; min-width:26px;
+  }
+  .strength-row input[type="number"]{
+    width:60px; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:3px; padding:5px; text-align:center; font-family:'JetBrains Mono',monospace;
+  }
 </style>
 </head>
 <body>
@@ -673,6 +690,7 @@
 
   <div class="toolbar">
     <button class="tool-btn" id="theme-toggle-btn">☀️ Thème clair</button>
+    <button class="tool-btn" id="edit-strengths-btn">✏️ Éditer les forces des clubs</button>
     <button class="tool-btn" id="multi-toggle">Vue multi-championnats</button>
     <button class="tool-btn" id="goto-palmares-btn">🏆 Aller au palmarès</button>
     <button class="tool-btn" id="next-season-btn">Saison suivante</button>
@@ -836,6 +854,29 @@
   </div>
 </div>
 
+<div class="live-overlay" id="strengths-overlay" style="display:none;">
+  <div class="live-box" style="max-width:560px;">
+    <div class="live-top">
+      <div class="live-title">✏️ Forces des clubs — <span id="strengths-league-name"></span></div>
+      <div class="live-actions">
+        <button class="live-btn live-close" id="strengths-close-btn">✕ Fermer</button>
+      </div>
+    </div>
+    <div style="padding:16px 18px;">
+      <p style="color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.5;">
+        Ajuste la force de base (35–99) de chaque club de ce championnat. Cette valeur pilote directement
+        la probabilité de buts lors des simulations ; les modificateurs de forme et de fatigue s'ajoutent
+        par-dessus, match par match.
+      </p>
+      <div id="strengths-list"></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="sim-btn" id="strengths-save-btn" style="margin-top:0;">Enregistrer les forces</button>
+        <button class="reset-btn" id="strengths-reset-btn" style="margin-top:0;">Réinitialiser aux valeurs par défaut</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ---------- Force des équipes (1-100, approximatif) ---------- */
 const STRENGTHS = {
@@ -917,6 +958,10 @@ const LIGUE2_EXTRA_STRENGTHS = {
   "Nîmes Olympique":48,"Chamois Niortais":44,"Quevilly-Rouen Métropole":46,"FC Villefranche":41
 };
 Object.assign(STRENGTHS, LIGUE2_EXTRA_STRENGTHS);
+
+// Copie figée des forces de départ, pour permettre de "réinitialiser aux valeurs par défaut"
+// depuis le panneau d'édition — STRENGTHS lui-même évolue ensuite au fil des saisons.
+const DEFAULT_STRENGTHS = { ...STRENGTHS };
 
 /* ---------- Données des championnats ---------- */
 const LEAGUES = {
@@ -2340,6 +2385,78 @@ document.getElementById('multi-sim-btn').addEventListener('click', () => {
   renderMultiView();
   saveToLocalStorage();
   showSimSummary(buildSimSummary(played), `Journée ${multiMatchday + 1} — tous les championnats`);
+});
+
+/* ---------- Édition des forces des clubs (personnalisation) ---------- */
+let strengthsEditingKey = null;
+
+function openStrengthsEditor(){
+  strengthsEditingKey = DOMESTIC_KEYS.includes(activeLeague) ? activeLeague : DOMESTIC_KEYS[0];
+  renderStrengthsPanel();
+  document.getElementById('strengths-overlay').style.display = 'flex';
+}
+
+function renderStrengthsPanel(){
+  const key = strengthsEditingKey;
+  const league = LEAGUES[key];
+  const nameEl = document.getElementById('strengths-league-name');
+  nameEl.innerHTML = `<select id="strengths-league-select" style="background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:5px 8px;border-radius:4px;font-family:'Inter',sans-serif;font-size:14px;">
+    ${DOMESTIC_KEYS.map(k => `<option value="${k}" ${k === key ? 'selected' : ''}>${LEAGUES[k].name}</option>`).join('')}
+  </select>`;
+  document.getElementById('strengths-league-select').addEventListener('change', (e) => {
+    strengthsEditingKey = e.target.value;
+    renderStrengthsPanel();
+  });
+
+  const list = document.getElementById('strengths-list');
+  const teams = league.teams.slice().sort((a, b) => a.localeCompare(b));
+  list.innerHTML = teams.map(team => {
+    const val = Math.round(STRENGTHS[team] ?? 55);
+    return `
+      <div class="strength-row" data-team="${team.replace(/"/g, '&quot;')}">
+        <span>${team}</span>
+        <input type="range" min="35" max="99" value="${val}" class="strength-range">
+        <input type="number" min="35" max="99" value="${val}" class="strength-num">
+      </div>`;
+  }).join('');
+}
+
+// Synchronise curseur <-> champ numérique dans une même ligne (délégation, posée une seule fois).
+document.getElementById('strengths-list').addEventListener('input', (e) => {
+  const row = e.target.closest('.strength-row');
+  if (!row) return;
+  const range = row.querySelector('.strength-range');
+  const num = row.querySelector('.strength-num');
+  if (e.target === range){
+    num.value = range.value;
+  } else if (e.target === num){
+    let v = parseInt(num.value, 10);
+    if (isNaN(v)) return;
+    v = Math.max(35, Math.min(99, v));
+    range.value = v;
+  }
+});
+
+document.getElementById('edit-strengths-btn').addEventListener('click', openStrengthsEditor);
+document.getElementById('strengths-close-btn').addEventListener('click', () => {
+  document.getElementById('strengths-overlay').style.display = 'none';
+});
+document.getElementById('strengths-save-btn').addEventListener('click', () => {
+  document.querySelectorAll('#strengths-list .strength-row').forEach(row => {
+    const team = row.dataset.team;
+    const num = row.querySelector('.strength-num');
+    let v = parseInt(num.value, 10);
+    if (isNaN(v)) return;
+    STRENGTHS[team] = Math.max(35, Math.min(99, v));
+  });
+  saveToLocalStorage();
+  render();
+});
+document.getElementById('strengths-reset-btn').addEventListener('click', () => {
+  LEAGUES[strengthsEditingKey].teams.forEach(team => {
+    if (DEFAULT_STRENGTHS[team] !== undefined) STRENGTHS[team] = DEFAULT_STRENGTHS[team];
+  });
+  renderStrengthsPanel();
 });
 
 /* ---------- Export / Import de sauvegarde ---------- */
