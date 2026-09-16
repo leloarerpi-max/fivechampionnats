@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simulateur — 5 Grands Championnats</title>
+<script>
+  try {
+    if (localStorage.getItem('sim-theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -19,6 +26,18 @@
     --red:#ff5d5d;
     --blue:#5aa9ff;
   }
+  :root[data-theme="light"]{
+    --bg:#eef1ee;
+    --panel:#ffffff;
+    --panel-2:#f4f6f4;
+    --line:#d7ddd7;
+    --text:#12201a;
+    --muted:#5b6b62;
+    --amber:#a86a00;
+    --green:#1f8f52;
+    --red:#d13333;
+    --blue:#2f6fd6;
+  }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -28,6 +47,11 @@
     color:var(--text);
     font-family:'Inter',sans-serif;
     min-height:100vh;
+  }
+  :root[data-theme="light"] body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #dcefe2 0%, transparent 60%),
+      var(--bg);
   }
   .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
 
@@ -84,6 +108,7 @@
     background:var(--amber);
     border-color:var(--amber);
   }
+  :root[data-theme="light"] .tab.active{ color:#fff; }
 
   .league-flag{
     display:inline-block;
@@ -283,6 +308,7 @@
   }
   .sim-btn:hover{filter:brightness(1.08);}
   .sim-btn:disabled{background:var(--line);color:var(--muted);cursor:default;}
+  :root[data-theme="light"] .sim-btn{ color:#fff; }
 
   .reset-btn{
     width:100%;
@@ -332,6 +358,7 @@
   }
   .tool-btn:hover{border-color:var(--amber);}
   .tool-btn.on{background:var(--amber);border-color:var(--amber);color:#0a0f0d;}
+  :root[data-theme="light"] .tool-btn.on{ color:#fff; }
 
   /* H2H panel */
   #h2h-panel{margin-bottom:18px;}
@@ -645,6 +672,7 @@
   <div class="tabs" id="tabs"></div>
 
   <div class="toolbar">
+    <button class="tool-btn" id="theme-toggle-btn">☀️ Thème clair</button>
     <button class="tool-btn" id="multi-toggle">Vue multi-championnats</button>
     <button class="tool-btn" id="goto-palmares-btn">🏆 Aller au palmarès</button>
     <button class="tool-btn" id="next-season-btn">Saison suivante</button>
@@ -2251,6 +2279,25 @@ function renderMultiView(){
     container.appendChild(block);
   });
 }
+
+function applyThemeButtonLabel(){
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.getElementById('theme-toggle-btn').textContent = isLight ? '🌙 Thème sombre' : '☀️ Thème clair';
+}
+applyThemeButtonLabel();
+
+document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+  const html = document.documentElement;
+  const isLight = html.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    html.removeAttribute('data-theme');
+    try { localStorage.setItem('sim-theme', 'dark'); } catch (e) {}
+  } else {
+    html.setAttribute('data-theme', 'light');
+    try { localStorage.setItem('sim-theme', 'light'); } catch (e) {}
+  }
+  applyThemeButtonLabel();
+});
 
 document.getElementById('goto-palmares-btn').addEventListener('click', () => {
   document.getElementById('palmares-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
