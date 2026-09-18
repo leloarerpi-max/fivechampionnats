@@ -777,8 +777,8 @@
         <button id="multi-next">&rarr;</button>
       </div>
     </div>
+    <button class="sim-btn" id="multi-sim-btn" style="margin-top:0;margin-bottom:14px;">Simuler cette journée pour tous les championnats</button>
     <div id="multi-leagues"></div>
-    <button class="sim-btn" id="multi-sim-btn">Simuler cette journée pour tous les championnats</button>
   </div>
 
   <div class="panel" id="palmares-panel">
@@ -2354,8 +2354,25 @@ document.addEventListener('click', (e) => {
   toggleFavorite(el.dataset.team);
 });
 
+// Renvoie l'indice de la dernière journée où au moins un match a déjà été joué,
+// tous championnats domestiques confondus (0 si rien n'a encore été simulé).
+function lastPlayedMultiMatchday(){
+  let last = 0;
+  DOMESTIC_KEYS.forEach(key => {
+    const st = state[key];
+    if (!st || !st.results) return;
+    for (let i = 0; i < st.results.length; i++){
+      if (st.results[i].some(r => r !== null)) last = Math.max(last, i);
+    }
+  });
+  return last;
+}
+
 document.getElementById('multi-toggle').addEventListener('click', () => {
   viewMode = viewMode === 'single' ? 'multi' : 'single';
+  if (viewMode === 'multi'){
+    multiMatchday = lastPlayedMultiMatchday();
+  }
   document.getElementById('multi-toggle').classList.toggle('on', viewMode === 'multi');
   document.getElementById('single-view').style.display = viewMode === 'single' ? 'grid' : 'none';
   document.getElementById('multi-view').style.display = viewMode === 'multi' ? 'block' : 'none';
