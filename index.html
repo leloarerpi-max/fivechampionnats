@@ -2476,7 +2476,8 @@ function buildSavePayload(){
       wildcardCount: LEAGUES[k].wildcardCount,
       results: state[k].results,
       phase: LEAGUES[k].continental ? state[k].phase : undefined,
-      knockout: LEAGUES[k].continental ? state[k].knockout : undefined
+      knockout: LEAGUES[k].continental ? state[k].knockout : undefined,
+      scorers: state[k].scorers
     }]))
   };
 }
@@ -2525,6 +2526,15 @@ function applySavePayload(data){
       if (Array.isArray(imported.results) && imported.results.length === state[key].results.length){
         state[key].results = imported.results;
       }
+    }
+
+    if (imported.scorers && typeof imported.scorers === 'object'){
+      // Sauvegarde déjà au nouveau format : on restaure les buteurs tels quels.
+      state[key].scorers = imported.scorers;
+    } else {
+      // Ancienne sauvegarde (avant correctif) : aucun buteur n'a jamais été stocké.
+      // On reconstitue un classement cohérent avec les scores déjà joués.
+      rebuildScorersFromResults(key);
     }
 
     const st = state[key];
@@ -3108,6 +3118,24 @@ function recordScorers(key, home, away, hg, ag){
   if (!key) return;
   for (let i = 0; i < hg; i++) creditGoal(key, home, pickScorer(home));
   for (let i = 0; i < ag; i++) creditGoal(key, away, pickScorer(away));
+}
+// Reconstitue un classement des buteurs cohérent avec les scores déjà enregistrés.
+// Utilisé pour les anciennes sauvegardes (avant correctif) qui n'ont jamais stocké de buteurs :
+// impossible de retrouver le nom exact de chaque buteur passé, mais on régénère une répartition
+// plausible dont les totaux de buts collent exactement aux scores déjà joués.
+function rebuildScorersFromResults(key){
+  if (key !== 'l1') return;
+  const st = state[key];
+  if (!st || !st.schedule) return;
+  st.scorers = {};
+  st.schedule.forEach((md, mdIdx) => {
+    md.forEach((match, i) => {
+      const res = st.results[mdIdx] && st.results[mdIdx][i];
+      if (!res) return;
+      const [hg, ag] = res;
+      recordScorers(key, match[0], match[1], hg, ag);
+    });
+  });
 }
 function topScorers(key, limit){
   const st = state[key];
