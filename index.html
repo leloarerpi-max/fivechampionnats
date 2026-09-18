@@ -558,6 +558,30 @@
   .sim-summary-head button:hover{color:var(--text);}
   .sim-summary-row{padding:3px 0;color:var(--text);}
 
+  /* Confettis (célébration club favori) */
+  .confetti-overlay{
+    position:fixed; inset:0; z-index:9999; pointer-events:none; overflow:hidden;
+  }
+  .confetti-piece{
+    position:absolute; top:-20px; width:8px; height:14px; opacity:.9;
+    animation-name:confetti-fall; animation-timing-function:linear; animation-fill-mode:forwards;
+  }
+  @keyframes confetti-fall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(112vh) rotate(560deg); opacity:.85; }
+  }
+  .confetti-message{
+    position:fixed; top:16%; left:50%; transform:translate(-50%,0);
+    background:var(--panel); border:1px solid var(--amber); border-radius:6px;
+    padding:16px 24px; font-family:'Bebas Neue',sans-serif; font-size:22px;
+    letter-spacing:.02em; color:var(--text); z-index:10000; text-align:center;
+    max-width:90vw;
+    box-shadow:0 10px 34px rgba(0,0,0,.4);
+    animation:confetti-message-in .25s ease-out;
+    pointer-events:auto; cursor:pointer;
+  }
+  @keyframes confetti-message-in{ from{ opacity:0; transform:translate(-50%,-14px); } to{ opacity:1; transform:translate(-50%,0); } }
+
   /* Pastilles de forme */
   td.form-cell{white-space:nowrap;}
   .form-dot{
@@ -570,6 +594,23 @@
   .form-D{background:var(--muted);}
   .form-L{background:var(--red);}
   .form-none{color:var(--muted);font-size:11px;}
+
+  /* Forme + fatigue affichées à côté du nom du club (journées, vue multi-championnats) */
+  .form-streak{
+    display:inline-flex;
+    align-items:center;
+    margin-left:6px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0;
+    vertical-align:middle;
+  }
+  .streak-W{color:var(--green);}
+  .streak-D{color:var(--muted);}
+  .streak-L{color:var(--red);}
+  .streak-sep{color:var(--line);margin:0 1px;}
+  .fatigue-badge{margin-left:4px;font-size:11px;cursor:help;vertical-align:middle;}
 
   /* Historique des saisons */
   #history-panel{margin-top:18px;}
@@ -711,6 +752,7 @@
 
   <div id="sim-summary" class="summary-panel" style="display:none;"></div>
   <div id="season-movements" class="summary-panel" style="display:none;"></div>
+  <div id="mercato-news" class="summary-panel" style="display:none;"></div>
 
   <div class="grid" id="single-view">
     <div class="panel">
@@ -1348,6 +1390,28 @@ function effectiveStrength(team){
   return base + formModifier(team) + fatigueModifier(team);
 }
 
+// Petit badge textuel "W-W-D-L-W" à afficher directement à côté du nom d'un club
+// (dans les journées à venir / vue multi-championnats), en plus des pastilles déjà
+// présentes dans le tableau de classement.
+function formStreakHtml(team){
+  const key = domesticKeyOfTeam(team);
+  if (!key) return '';
+  const records = recentResultsInCompetition(key, team, 5);
+  if (records.length === 0) return '';
+  const letters = records.slice().reverse()
+    .map(r => `<span class="streak-${r}">${r}</span>`).join('<span class="streak-sep">-</span>');
+  return `<span class="form-streak" title="5 derniers résultats en championnat (plus ancien → plus récent)">${letters}</span>`;
+}
+
+// Petit repère visuel quand un club porte une fatigue cumulée notable liée à son calendrier
+// européen (au lieu de laisser cet effet totalement invisible dans le calcul des scores).
+function fatigueBadgeHtml(team){
+  const played = europeMatchesPlayed(team);
+  if (played === 0) return '';
+  if (fatigueModifier(team) > -0.5) return '';
+  return `<span class="fatigue-badge" title="Calendrier chargé : ${played} match${played > 1 ? 's' : ''} européen${played > 1 ? 's' : ''} disputé${played > 1 ? 's' : ''} cette saison (léger malus de forme)">🥵</span>`;
+}
+
 /* ---------- Enjeu de fin de saison : moins de hasard pour les matchs décisifs,
    plus de surprises pour les matchs sans enjeu (relâchement / rotation) ---------- */
 function teamHasStakes(key, team, rows){
@@ -1443,6 +1507,35 @@ function favToggleHtml(team){
   const fav = isFavorite(team);
   const safe = team.replace(/"/g, '&quot;');
   return `<span class="fav-toggle${fav ? ' fav-on' : ''}" data-team="${safe}" title="${fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}">${fav ? '⚽' : '☆'}</span>`;
+}
+
+/* ---------- Petite célébration (confettis) quand un club favori remporte un titre ---------- */
+const CONFETTI_COLORS = ['#ffb703', '#3ddc84', '#5aa9ff', '#ff5d5d', '#ffffff'];
+function celebrateFavoriteTitle(message){
+  const overlay = document.createElement('div');
+  overlay.className = 'confetti-overlay';
+  for (let i = 0; i < 90; i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    piece.style.animationDuration = (2.2 + Math.random() * 1.6) + 's';
+    piece.style.animationDelay = (Math.random() * 0.6) + 's';
+    if (Math.random() < 0.5) piece.style.borderRadius = '50%';
+    overlay.appendChild(piece);
+  }
+  document.body.appendChild(overlay);
+
+  const msg = document.createElement('div');
+  msg.className = 'confetti-message';
+  msg.textContent = message;
+  msg.title = 'Cliquer pour fermer';
+  document.body.appendChild(msg);
+
+  let done = false;
+  const cleanup = () => { if (done) return; done = true; overlay.remove(); msg.remove(); };
+  msg.addEventListener('click', cleanup);
+  setTimeout(cleanup, 5200);
 }
 // Vainqueur de la Coupe de France de la saison précédente : sa place en Europa League
 // (ou son report sur le 8e) ne s'applique qu'au tirage européen de la saison suivante.
@@ -1740,8 +1833,8 @@ function renderFixtures(){
     const row = document.createElement('div');
     row.className = 'fixture';
     const highlightFr = league.continental && !league.cupOnly && (isFrenchClub(home) || isFrenchClub(away));
-    const homeLabel = favToggleHtml(home) + (highlightFr ? frenchLabel(home) : home);
-    const awayLabel = favToggleHtml(away) + (highlightFr ? frenchLabel(away) : away);
+    const homeLabel = favToggleHtml(home) + (highlightFr ? frenchLabel(home) : home) + formStreakHtml(home) + fatigueBadgeHtml(home);
+    const awayLabel = favToggleHtml(away) + (highlightFr ? frenchLabel(away) : away) + formStreakHtml(away) + fatigueBadgeHtml(away);
     row.innerHTML = `
       <div class="home">${homeLabel}</div>
       <div class="score-inputs">
@@ -2013,6 +2106,12 @@ document.getElementById('sim-round-btn').addEventListener('click', () => {
 document.getElementById('advance-round-btn').addEventListener('click', () => {
   advanceRound(activeLeague);
   render();
+  if (state[activeLeague].phase === 'done'){
+    const champion = getCupChampion(activeLeague);
+    if (champion && favorites.has(champion)){
+      celebrateFavoriteTitle(`🏆 ${champion} remporte ${LEAGUES[activeLeague].name} !`);
+    }
+  }
 });
 
 /* ---------- Évolution des forces + montée/descente en fin de saison ---------- */
@@ -2069,6 +2168,21 @@ function showSeasonMovements(movementsByKey, label){
   document.getElementById('season-movements-close').addEventListener('click', () => { panel.style.display = 'none'; });
 }
 
+// Affiche le résumé du mercato + des carrières (retraites, éclosions, transferts) survenus
+// à l'intersaison. Limité à un nombre raisonnable de lignes pour rester lisible.
+function showMercatoNews(items, label){
+  const panel = document.getElementById('mercato-news');
+  if (!panel) return;
+  if (!items || items.length === 0){ panel.style.display = 'none'; return; }
+  const shown = items.slice(0, 12);
+  const extra = items.length - shown.length;
+  const rows = shown.map(t => `<div class="sim-summary-row">${t}</div>`);
+  if (extra > 0) rows.push(`<div class="sim-summary-row" style="color:var(--muted);">…et ${extra} autre${extra > 1 ? 's' : ''} mouvement${extra > 1 ? 's' : ''}.</div>`);
+  panel.style.display = '';
+  panel.innerHTML = `<div class="sim-summary-head">${label}<button id="mercato-news-close" aria-label="Fermer">&times;</button></div>` + rows.join('');
+  document.getElementById('mercato-news-close').addEventListener('click', () => { panel.style.display = 'none'; });
+}
+
 // Archive la saison en cours (champions, mouvements, forces) et repart sur une nouvelle saison.
 // silent=true : pas de confirmation ni de résumé affiché (utilisé par la simulation rapide multi-saisons).
 function endSeasonAndAdvance(silent){
@@ -2101,6 +2215,11 @@ function endSeasonAndAdvance(silent){
   const movements = {};
   DOMESTIC_KEYS.forEach(key => { movements[key] = evolveLeagueForNextSeason(key); });
 
+  // Mercato + vieillissement des effectifs, calculés une fois les montées/descentes connues
+  // (pour que les clubs promus/relégués soient pris en compte avec leur nouvelle réalité).
+  const careerNews = ageAndProgressRosters();
+  const mercatoNews = runMercato();
+
   currentSeason++;
   DOMESTIC_KEYS.forEach(key => initLeague(key));
   LEAGUES.ucl.teams = []; LEAGUES.ucl.qualifiedCount = 0; LEAGUES.ucl.wildcardCount = 0;
@@ -2114,6 +2233,18 @@ function endSeasonAndAdvance(silent){
   if (!silent){
     render();
     showSeasonMovements(movements, `Mouvements — fin de saison ${seasonLabel(currentSeason - 1)}`);
+    showMercatoNews(careerNews.concat(mercatoNews), `Mercato & carrières — intersaison ${seasonLabel(currentSeason)}`);
+
+    const lastEntry = seasonHistory[seasonHistory.length - 1];
+    const favTitles = DOMESTIC_KEYS
+      .filter(key => favorites.has(champions[key]))
+      .map(key => `${champions[key]} (${LEAGUES[key].name})`);
+    if (favorites.has(lastEntry.coupeFranceWinner)) favTitles.push(`${lastEntry.coupeFranceWinner} (Coupe de France)`);
+    if (favorites.has(lastEntry.uclWinner)) favTitles.push(`${lastEntry.uclWinner} (Ligue des Champions)`);
+    if (favorites.has(lastEntry.uelWinner)) favTitles.push(`${lastEntry.uelWinner} (Europa League)`);
+    if (favTitles.length){
+      celebrateFavoriteTitle(`🏆 Titre pour ${favTitles.join(' · ')} !`);
+    }
   }
   return true;
 }
@@ -2310,9 +2441,9 @@ function renderMultiView(){
       const res = results[i];
       return `
         <div class="multi-fixture">
-          <div class="home">${favToggleHtml(home)}${home}</div>
+          <div class="home">${favToggleHtml(home)}${home}${formStreakHtml(home)}${fatigueBadgeHtml(home)}</div>
           <div class="score ${res ? '' : 'pending'}">${res ? res[0] + ' – ' + res[1] : 'vs'}</div>
-          <div class="away">${favToggleHtml(away)}${away}</div>
+          <div class="away">${favToggleHtml(away)}${away}${formStreakHtml(away)}${fatigueBadgeHtml(away)}</div>
         </div>
       `;
     }).join('');
@@ -2479,7 +2610,7 @@ document.getElementById('strengths-reset-btn').addEventListener('click', () => {
 /* ---------- Export / Import de sauvegarde ---------- */
 function buildSavePayload(){
   return {
-    version: 5,
+    version: 6,
     savedAt: new Date().toISOString(),
     currentSeason,
     seasonHistory,
@@ -2487,6 +2618,7 @@ function buildSavePayload(){
     favorites: Array.from(favorites),
     strengths: STRENGTHS,
     reservePools: RESERVE_POOLS,
+    rosters: ROSTERS,
     leagues: Object.fromEntries(Object.keys(LEAGUES).map(k => [k, {
       teams: LEAGUES[k].teams,
       qualifiedCount: LEAGUES[k].qualifiedCount,
@@ -2510,6 +2642,13 @@ function applySavePayload(data){
   if (data.reservePools && typeof data.reservePools === 'object'){
     Object.keys(RESERVE_POOLS).forEach(key => {
       if (Array.isArray(data.reservePools[key])) RESERVE_POOLS[key] = data.reservePools[key];
+    });
+  }
+  // Effectifs persistants (âge, statut vedette) : restaurés tels quels s'ils existent déjà dans
+  // la sauvegarde ; sinon ils seront simplement (re)générés à la demande par getSquad().
+  if (data.rosters && typeof data.rosters === 'object'){
+    Object.keys(data.rosters).forEach(team => {
+      if (Array.isArray(data.rosters[team])) ROSTERS[team] = data.rosters[team];
     });
   }
   document.getElementById('kicker').textContent = `SIMULATEUR // SAISON ${seasonLabel(currentSeason)}`;
@@ -3102,8 +3241,107 @@ function autoSquadFor(team){
   AUTO_SQUADS[team] = squad;
   return squad;
 }
+
+/* ---------- Effectifs persistants : âge, progression, mercato ----------
+   ROSTERS[team] est la version "vivante" de l'effectif d'un club : construite une seule fois
+   (depuis PLAYERS ou autoSquadFor) avec un âge plausible par joueur, puis modifiée au fil des
+   saisons (vieillissement, retraites, éclosions de jeunes, transferts). Persisté en sauvegarde. */
+const ROSTERS = {};
+function buildInitialSquad(team){
+  const base = (PLAYERS[team] || autoSquadFor(team)).map(p => ({ ...p }));
+  base.forEach(p => {
+    if (typeof p.age !== 'number'){
+      const [min, max] = p.pos === 'GK' ? [22, 35] : [18, 33];
+      p.age = min + Math.floor(Math.random() * (max - min + 1));
+    }
+    if (typeof p.star !== 'boolean') p.star = !!p.star;
+  });
+  return base;
+}
 function getSquad(team){
-  return PLAYERS[team] || autoSquadFor(team);
+  if (!ROSTERS[team]) ROSTERS[team] = buildInitialSquad(team);
+  return ROSTERS[team];
+}
+
+// Vieillissement, déclin des vétérans, éclosion de jeunes et départs à la retraite.
+// Appelé une fois par club et par saison (fin de saison), uniquement sur les effectifs déjà
+// "activés" (ceux dont getSquad a déjà servi au moins une fois).
+function ageAndProgressRosters(){
+  const news = [];
+  Object.keys(ROSTERS).forEach(team => {
+    const squad = ROSTERS[team];
+    const arrivals = [];
+    for (let i = squad.length - 1; i >= 0; i--){
+      const p = squad[i];
+      p.age += 1;
+
+      // Déclin progressif des joueurs vedettes vieillissants
+      if (p.star && p.age >= 31){
+        const declineChance = 0.10 + (p.age - 31) * 0.06;
+        if (Math.random() < declineChance){
+          p.star = false;
+          news.push(`📉 ${p.name} (${team}) n'est plus le cadre qu'il était — perte de son statut de titulaire indiscutable.`);
+        }
+      }
+      // Éclosion de jeunes talents
+      if (!p.star && p.age <= 23){
+        const breakoutChance = p.pos === 'ATT' ? 0.05 : 0.035;
+        if (Math.random() < breakoutChance){
+          p.star = true;
+          news.push(`📈 ${p.name} (${team}, ${p.age} ans) s'impose comme un titulaire indiscutable.`);
+        }
+      }
+      // Fin de carrière
+      let retireChance = 0;
+      if (p.age >= 34) retireChance = 0.10 + (p.age - 34) * 0.15;
+      if (p.age >= 38) retireChance = 0.9;
+      if (Math.random() < retireChance){
+        news.push(`👋 ${p.name} (${team}) prend sa retraite à ${p.age} ans.`);
+        const rookieName = drawFromPool(poolForTeam(team), 1)[0];
+        arrivals.push({ name: rookieName, pos: p.pos, age: 17 + Math.floor(Math.random() * 3), star: false });
+        squad.splice(i, 1);
+      }
+    }
+    arrivals.forEach(a => squad.push(a));
+  });
+  return news;
+}
+
+// Mercato : quelques transferts entre clubs à chaque intersaison, biaisés par la force des clubs
+// (les meilleurs éléments des clubs plus faibles ont plus de chances de rejoindre un club plus fort).
+function runMercato(){
+  const news = [];
+  const teams = DOMESTIC_KEYS.flatMap(key => LEAGUES[key].teams);
+  teams.forEach(t => { if (!ROSTERS[t]) ROSTERS[t] = buildInitialSquad(t); });
+  if (teams.length < 2) return news;
+
+  const transferCount = Math.max(3, Math.round(teams.length * 0.12));
+  for (let n = 0; n < transferCount; n++){
+    const fromTeam = teams[Math.floor(Math.random() * teams.length)];
+    let toTeam = teams[Math.floor(Math.random() * teams.length)];
+    let guard = 0;
+    while (toTeam === fromTeam && guard < 6){ toTeam = teams[Math.floor(Math.random() * teams.length)]; guard++; }
+    if (toTeam === fromTeam) continue;
+
+    const squad = ROSTERS[fromTeam];
+    if (!squad || squad.length <= 12) continue; // ne jamais vider un effectif sous l'effectif minimal
+
+    const fromStrength = STRENGTHS[fromTeam] ?? 55;
+    const toStrength = STRENGTHS[toTeam] ?? 55;
+    let idx;
+    if (toStrength > fromStrength + 3){
+      // transfert "vers le haut" : on privilégie un joueur vedette s'il y en a un
+      const starIdx = squad.findIndex(p => p.star);
+      idx = (starIdx >= 0 && Math.random() < 0.6) ? starIdx : Math.floor(Math.random() * squad.length);
+    } else {
+      idx = Math.floor(Math.random() * squad.length);
+    }
+    const [player] = squad.splice(idx, 1);
+    if (!ROSTERS[toTeam]) ROSTERS[toTeam] = buildInitialSquad(toTeam);
+    ROSTERS[toTeam].push(player);
+    news.push(`🔄 ${player.name} quitte ${fromTeam} pour rejoindre ${toTeam}${player.star ? ' — joueur clé' : ''}.`);
+  }
+  return news;
 }
 
 function pickWeightedPlayer(team, weights){
