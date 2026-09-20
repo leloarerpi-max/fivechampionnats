@@ -678,8 +678,8 @@
   .live-news-item{padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;color:var(--muted);}
     /* ---------- Planning hebdomadaire (1 saison = 1 semaine calendaire) ---------- */
   .weekly-progress{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:10px;}
-  .weekly-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:8px;overflow-x:auto;}
-  @media (max-width:900px){.weekly-grid{grid-template-columns:repeat(7,190px);}}
+  .weekly-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:8px;overflow-x:auto;}
+  @media (max-width:900px){.weekly-grid{grid-template-columns:repeat(5,190px);}}
   .weekly-day{border:1px solid var(--line);border-radius:4px;padding:8px;background:var(--panel-2);}
   .weekly-day.today{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
   .weekly-day h4{margin:0 0 6px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline;color:var(--text);}
@@ -3803,7 +3803,7 @@ document.getElementById('live-close-btn').addEventListener('click', () => closeL
 document.getElementById('live-finish-btn').addEventListener('click', () => closeLiveOverlay(false));
 
 /* ---------- Planning hebdomadaire : répartition des tâches sur Lundi -> Dimanche ---------- */
-const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 const CDF_ROUND_ORDER = ['Seizièmes de finale', '8es de finale', 'Quarts de finale', 'Demi-finales', 'Finale'];
 const EURO_ROUND_ORDER = ['Barrages', '8es de finale', 'Quarts de finale', 'Demi-finales', 'Finale'];
 
@@ -3850,9 +3850,10 @@ function buildWeeklyTasks(){
 function splitAcrossWeek(queue){
   const days = [];
   let pos = 0;
-  for (let d = 0; d < 7; d++){
+  const NUM_WEEKLY_DAYS = 5; // Lundi -> Vendredi (week-end exclu du planning)
+  for (let d = 0; d < NUM_WEEKLY_DAYS; d++){
     const remaining = queue.length - pos;
-    const daysLeft = 7 - d;
+    const daysLeft = NUM_WEEKLY_DAYS - d;
     const take = Math.ceil(remaining / daysLeft);
     days.push(queue.slice(pos, pos + take));
     pos += take;
