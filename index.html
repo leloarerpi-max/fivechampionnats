@@ -1103,14 +1103,31 @@ function shuffle(arr){
   }
   return a;
 }
-function getDomesticQualifiers(){
+// Clubs qualifiés en LDC / Europa depuis les championnats domestiques, à partir du classement
+// donné en paramètre (permet de figer le classement de la saison qui vient de se terminer
+// plutôt que de systématiquement relire le classement "en direct" au moment du tirage).
+function computeDomesticQualifierLists(){
   const uclClubs = [], uelClubs = [];
+  const standingsByLeague = {}; // classement COMPLET (pas juste le Top 7) de chaque championnat,
+                                 // figé au même instant — nécessaire pour retrouver fiablement
+                                 // le "8e" d'un championnat quand on reporte la place du vainqueur
+                                 // de la Coupe de France (voir getDomesticQualifiers ci-dessous).
   DOMESTIC_KEYS.forEach(key => {
     const rows = computeStandings(key);
+    standingsByLeague[key] = rows;
     const league = LEAGUES[key];
     rows.slice(0, league.europe.ucl).forEach(r => uclClubs.push(r.team));
     rows.slice(league.europe.ucl, league.europe.ucl + league.europe.uel).forEach(r => uelClubs.push(r.team));
   });
+  return { uclClubs, uelClubs, standingsByLeague };
+}
+function getDomesticQualifiers(){
+  // Utilise le classement figé à la fin de la dernière saison jouée (pendingEuroQualifiers)
+  // s'il existe ; sinon (première saison, avant tout "Saison suivante") retombe sur le
+  // classement en direct des championnats actuellement en cours.
+  const base = pendingEuroQualifiers || computeDomesticQualifierLists();
+  const uclClubs = base.uclClubs.slice();
+  const uelClubs = base.uelClubs.slice();
 
   // Place réservée au vainqueur de la Coupe de France de la saison PRÉCÉDENTE en Europa League
   // (l'éligibilité ne démarre qu'à la saison suivant sa victoire).
@@ -1124,10 +1141,27 @@ function getDomesticQualifiers(){
       uelClubs.push(cdfWinner);
       cdfNote = `${cdfWinner} qualifié en Europa League en tant que vainqueur de la Coupe de France (saison précédente).`;
     } else {
-      const winnerLeagueKey = domesticKeyOfTeam(cdfWinner);
-      if (winnerLeagueKey){
+      // Cherche le championnat du vainqueur dans le classement FIGÉ (pas un classement en
+      // direct qui, après "Saison suivante", serait déjà remis à zéro pour la nouvelle saison).
+      let winnerLeagueKey = null, rows = null;
+      if (base.standingsByLeague){
+        DOMESTIC_KEYS.forEach(key => {
+          if (rows) return;
+          const leagueRows = base.standingsByLeague[key];
+          if (leagueRows && leagueRows.some(r => r.team === cdfWinner)){
+            winnerLeagueKey = key;
+            rows = leagueRows;
+          }
+        });
+      }
+      if (!rows){
+        // Sauvegarde ancienne sans standingsByLeague : retombe sur le comportement précédent
+        // (classement en direct — imparfait, mais mieux que rien).
+        winnerLeagueKey = domesticKeyOfTeam(cdfWinner);
+        rows = winnerLeagueKey ? computeStandings(winnerLeagueKey) : null;
+      }
+      if (winnerLeagueKey && rows){
         const league = LEAGUES[winnerLeagueKey];
-        const rows = computeStandings(winnerLeagueKey);
         const eighthPos = league.europe.ucl + league.europe.uel + 1;
         const eighthTeam = rows[eighthPos - 1];
         if (eighthTeam && !uclClubs.includes(eighthTeam.team) && !uelClubs.includes(eighthTeam.team)){
@@ -1540,6 +1574,10 @@ function celebrateFavoriteTitle(message){
 // Vainqueur de la Coupe de France de la saison précédente : sa place en Europa League
 // (ou son report sur le 8e) ne s'applique qu'au tirage européen de la saison suivante.
 let pendingCdfWinner = null;
+// Classement qualificatif LDC/Europa figé à la fin de la dernière saison jouée (voir
+// computeDomesticQualifierLists / getDomesticQualifiers) — évite de relire un classement
+// "en direct" qui aurait déjà été réinitialisé par "Saison suivante" au moment du tirage.
+let pendingEuroQualifiers = null;
 
 // 1 saison simulée = 1 semaine calendaire réelle (lundi -> dimanche), numérotée en semaine ISO 8601.
 // La saison n°1 correspond au lundi de la semaine en cours au moment du lancement de l'appli.
@@ -2187,8 +2225,12 @@ function showMercatoNews(items, label){
 // silent=true : pas de confirmation ni de résumé affiché (utilisé par la simulation rapide multi-saisons).
 function endSeasonAndAdvance(silent){
   if (!silent){
+    const notDrawn = ['ucl','uel','coupefrance'].filter(k => LEAGUES[k].teams.length === 0);
     const unfinishedCups = ['ucl','uel','coupefrance'].filter(k => LEAGUES[k].teams.length > 0 && state[k].phase !== 'done');
     let warning = `Archiver la saison ${currentSeason} (${seasonLabel(currentSeason)}) et réinitialiser les 5 championnats domestiques pour la saison ${currentSeason + 1} ?`;
+    if (notDrawn.length){
+      warning += `\n\nAttention : ${notDrawn.map(k => LEAGUES[k].name).join(', ')} n'ont même pas été tirées au sort pour cette saison.`;
+    }
     if (unfinishedCups.length){
       warning += `\n\nAttention : ${unfinishedCups.map(k => LEAGUES[k].name).join(', ')} ne sont pas terminées — leur vainqueur sera noté comme non disputé.`;
     }
@@ -2211,6 +2253,10 @@ function endSeasonAndAdvance(silent){
   });
   // Le vainqueur de cette saison ne sera éligible à l'Europa League qu'au tirage de la saison suivante.
   pendingCdfWinner = coupeFranceWinner;
+  // Fige le classement qualificatif LDC/Europa de la saison qui vient de se terminer AVANT
+  // de réinitialiser les championnats domestiques ci-dessous — sinon un tirage au sort fait
+  // après "Saison suivante" lirait un classement vierge de la nouvelle saison.
+  pendingEuroQualifiers = computeDomesticQualifierLists();
 
   const movements = {};
   DOMESTIC_KEYS.forEach(key => { movements[key] = evolveLeagueForNextSeason(key); });
@@ -2610,11 +2656,12 @@ document.getElementById('strengths-reset-btn').addEventListener('click', () => {
 /* ---------- Export / Import de sauvegarde ---------- */
 function buildSavePayload(){
   return {
-    version: 6,
+    version: 7,
     savedAt: new Date().toISOString(),
     currentSeason,
     seasonHistory,
     pendingCdfWinner,
+    pendingEuroQualifiers,
     favorites: Array.from(favorites),
     strengths: STRENGTHS,
     reservePools: RESERVE_POOLS,
@@ -2637,6 +2684,9 @@ function applySavePayload(data){
   if (typeof data.currentSeason === 'number') currentSeason = data.currentSeason;
   if (Array.isArray(data.seasonHistory)) seasonHistory = data.seasonHistory;
   if (typeof data.pendingCdfWinner === 'string' || data.pendingCdfWinner === null) pendingCdfWinner = data.pendingCdfWinner;
+  if (data.pendingEuroQualifiers && typeof data.pendingEuroQualifiers === 'object'){
+    pendingEuroQualifiers = data.pendingEuroQualifiers;
+  }
   if (Array.isArray(data.favorites)) favorites = new Set(data.favorites);
   if (data.strengths && typeof data.strengths === 'object') Object.assign(STRENGTHS, data.strengths);
   if (data.reservePools && typeof data.reservePools === 'object'){
