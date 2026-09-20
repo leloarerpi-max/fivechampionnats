@@ -1816,9 +1816,13 @@ function renderFixtures(){
   const prevBtn = document.getElementById('md-prev');
   const nextBtn = document.getElementById('md-next');
   const liveBtn = document.getElementById('live-btn');
+  // LDC et Europa League ne démarrent qu'à partir de la saison 2 : il faut un premier
+  // classement de championnat terminé pour désigner les qualifiés. Pendant la saison 1,
+  // ces deux compétitions sont simplement absentes (pas de tirage possible).
+  const euroUnavailableSeason1 = (key === 'ucl' || key === 'uel') && currentSeason === 1;
 
-  drawBtn.style.display = league.continental ? '' : 'none';
-  if (league.continental){
+  drawBtn.style.display = (league.continental && !euroUnavailableSeason1) ? '' : 'none';
+  if (league.continental && !euroUnavailableSeason1){
     if (key === 'coupefrance'){
       drawBtn.textContent = league.teams.length === 0
         ? 'Tirer au sort le tableau (32 clubs)'
@@ -1845,11 +1849,15 @@ function renderFixtures(){
   }
 
   if (league.teams.length === 0){
-    document.getElementById('md-title').textContent = key === 'coupefrance' ? 'Tableau non tiré au sort' : 'Phase de ligue non tirée au sort';
+    document.getElementById('md-title').textContent = euroUnavailableSeason1
+      ? 'Non disputée cette saison'
+      : (key === 'coupefrance' ? 'Tableau non tiré au sort' : 'Phase de ligue non tirée au sort');
     prevBtn.disabled = true; nextBtn.disabled = true;
-    container.innerHTML = key === 'coupefrance'
-      ? '<div class="empty">Clique sur « Tirer au sort » ci-dessous pour composer le tableau à 32 (18 clubs de Ligue 1 + 14 de Ligue 2).</div>'
-      : '<div class="empty">Clique sur « Tirer au sort » ci-dessous pour composer les 36 clubs.</div>';
+    container.innerHTML = euroUnavailableSeason1
+      ? `<div class="empty">${league.name} ne se dispute pas lors de la première saison : il faut un classement de championnat terminé pour désigner les qualifiés. Rendez-vous à partir de la saison 2 !</div>`
+      : (key === 'coupefrance'
+        ? '<div class="empty">Clique sur « Tirer au sort » ci-dessous pour composer le tableau à 32 (18 clubs de Ligue 1 + 14 de Ligue 2).</div>'
+        : '<div class="empty">Clique sur « Tirer au sort » ci-dessous pour composer les 36 clubs.</div>');
     simBtn.style.display = 'none';
     seasonBtn.style.display = 'none';
     saveBtn.style.display = 'none';
@@ -2251,8 +2259,11 @@ function showMercatoNews(items, label){
 // silent=true : pas de confirmation ni de résumé affiché (utilisé par la simulation rapide multi-saisons).
 function endSeasonAndAdvance(silent){
   if (!silent){
-    const notDrawn = ['ucl','uel','coupefrance'].filter(k => LEAGUES[k].teams.length === 0);
-    const unfinishedCups = ['ucl','uel','coupefrance'].filter(k => LEAGUES[k].teams.length > 0 && state[k].phase !== 'done');
+    // La LDC et l'Europa League sont volontairement absentes de la saison 1 : on ne les inclut
+    // pas dans les vérifications "non tirée au sort" / "non terminée" pour cette saison-là.
+    const cupsToCheck = currentSeason === 1 ? ['coupefrance'] : ['ucl','uel','coupefrance'];
+    const notDrawn = cupsToCheck.filter(k => LEAGUES[k].teams.length === 0);
+    const unfinishedCups = cupsToCheck.filter(k => LEAGUES[k].teams.length > 0 && state[k].phase !== 'done');
     let warning = `Archiver la saison ${currentSeason} (${seasonLabel(currentSeason)}) et réinitialiser les 5 championnats domestiques pour la saison ${currentSeason + 1} ?`;
     if (notDrawn.length){
       warning += `\n\nAttention : ${notDrawn.map(k => LEAGUES[k].name).join(', ')} n'ont même pas été tirées au sort pour cette saison.`;
@@ -2353,29 +2364,31 @@ function autoSimulateFullSeason(){
     }
   }
 
-  if (LEAGUES.ucl.teams.length === 0 && LEAGUES.uel.teams.length === 0){
-    performEuroDraw();
-  }
-  ['ucl', 'uel'].forEach(key => {
-    if (LEAGUES[key].teams.length === 0) return;
-    const st = state[key];
-    if (st.phase === 'league'){
-      st.results.forEach((mdResults, mdIdx) => {
-        st.results[mdIdx] = mdResults.map((r, i) => {
-          if (r) return r;
-          const [home, away] = st.schedule[mdIdx][i];
-          return simulateMatch(home, away, key, mdIdx);
+  if (currentSeason > 1){
+    if (LEAGUES.ucl.teams.length === 0 && LEAGUES.uel.teams.length === 0){
+      performEuroDraw();
+    }
+    ['ucl', 'uel'].forEach(key => {
+      if (LEAGUES[key].teams.length === 0) return;
+      const st = state[key];
+      if (st.phase === 'league'){
+        st.results.forEach((mdResults, mdIdx) => {
+          st.results[mdIdx] = mdResults.map((r, i) => {
+            if (r) return r;
+            const [home, away] = st.schedule[mdIdx][i];
+            return simulateMatch(home, away, key, mdIdx);
+          });
         });
-      });
-      startKnockouts(key);
-    }
-    let guard = 0;
-    while (st.phase !== 'done' && guard < 20){
-      simulateRound(key);
-      advanceRound(key);
-      guard++;
-    }
-  });
+        startKnockouts(key);
+      }
+      let guard = 0;
+      while (st.phase !== 'done' && guard < 20){
+        simulateRound(key);
+        advanceRound(key);
+        guard++;
+      }
+    });
+  }
 }
 
 function runQuickSeasons(n){
@@ -3997,6 +4010,13 @@ function buildWeeklyTasks(){
   const cdf = [{ label: 'Coupe de France — tirage au sort', done: LEAGUES.coupefrance.teams.length > 0 }];
   const cdfDoneCount = knockoutDoneCount('coupefrance', CDF_ROUND_ORDER);
   CDF_ROUND_ORDER.forEach((name, i) => cdf.push({ label: `Coupe de France — ${name}`, done: i < cdfDoneCount }));
+
+  // La LDC et l'Europa League ne se disputent pas lors de la première saison (il faut un
+  // premier classement de championnat terminé pour désigner les qualifiés) : on ne les fait
+  // donc apparaître dans le planning qu'à partir de la saison 2.
+  if (currentSeason === 1){
+    return { domestic, cdf, ucl: [], uel: [] };
+  }
 
   const euro = {};
   [['ucl', 'C1'], ['uel', 'Europa']].forEach(([key, short]) => {
