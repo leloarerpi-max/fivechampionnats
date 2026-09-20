@@ -854,6 +854,25 @@
     </div>
   </div>
 
+  <div class="panel" id="archive-panel">
+    <h2 style="margin-bottom:14px;">Archives des saisons — classement complet</h2>
+    <div class="empty" id="archive-empty">Aucune saison archivée pour l'instant — termine une saison pour voir son classement complet ici.</div>
+    <div id="archive-controls" style="display:none;">
+      <div class="h2h-selectors" style="margin-bottom:16px;">
+        <select id="archive-season-select"></select>
+        <span>—</span>
+        <select id="archive-league-select">
+          <option value="l1">Ligue 1</option>
+          <option value="pl">Premier League</option>
+          <option value="liga">Liga</option>
+          <option value="seriea">Serie A</option>
+          <option value="bundes">Bundesliga</option>
+        </select>
+      </div>
+      <div id="archive-content"></div>
+    </div>
+  </div>
+
   <footer>Scores générés aléatoirement à titre ludique — n'a aucune valeur prédictive.</footer>
 </div>
 
@@ -2250,20 +2269,26 @@ function endSeasonAndAdvance(silent){
     champions[key] = rows.length ? rows[0].team : '—';
   });
   const coupeFranceWinner = getCupChampion('coupefrance');
+  // Calculé une seule fois : sert à la fois à figer les qualifiés LDC/Europa de la saison
+  // suivante (pendingEuroQualifiers) ET à archiver le classement complet de cette saison
+  // (seasonHistory) — évite de recalculer deux fois le même classement.
+  const qualifiers = computeDomesticQualifierLists();
   seasonHistory.push({
     season: currentSeason,
     label: seasonLabel(currentSeason),
     champions,
     uclWinner: getCupChampion('ucl'),
     uelWinner: getCupChampion('uel'),
-    coupeFranceWinner
+    coupeFranceWinner,
+    standings: qualifiers.standingsByLeague, // classement complet des 5 championnats, pour l'onglet "Archives des saisons"
+    scorersL1: topScorers('l1', 20)          // photo du top buteurs L1 de la saison qui se termine
   });
   // Le vainqueur de cette saison ne sera éligible à l'Europa League qu'au tirage de la saison suivante.
   pendingCdfWinner = coupeFranceWinner;
   // Fige le classement qualificatif LDC/Europa de la saison qui vient de se terminer AVANT
   // de réinitialiser les championnats domestiques ci-dessous — sinon un tirage au sort fait
   // après "Saison suivante" lirait un classement vierge de la nouvelle saison.
-  pendingEuroQualifiers = computeDomesticQualifierLists();
+  pendingEuroQualifiers = qualifiers;
 
   const movements = {};
   DOMESTIC_KEYS.forEach(key => { movements[key] = evolveLeagueForNextSeason(key); });
@@ -2932,6 +2957,91 @@ function renderSeasonHistory(){
     </tr>
   `).join('');
 }
+
+/* ---------- Archives des saisons : classement complet + top buteurs L1, saison par saison ---------- */
+function renderArchivePanel(){
+  const emptyEl = document.getElementById('archive-empty');
+  const controls = document.getElementById('archive-controls');
+  const seasonSel = document.getElementById('archive-season-select');
+
+  if (seasonHistory.length === 0){
+    emptyEl.style.display = '';
+    controls.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  controls.style.display = '';
+
+  // Reconstruit la liste des saisons archivées (la plus récente en premier) en gardant
+  // la sélection courante si elle existe toujours.
+  const prevValue = seasonSel.value;
+  seasonSel.innerHTML = seasonHistory.slice().reverse()
+    .map(s => `<option value="${s.season}">Saison ${s.season} (${s.label})</option>`).join('');
+  const availableSeasons = seasonHistory.map(s => String(s.season));
+  seasonSel.value = availableSeasons.includes(prevValue) ? prevValue : String(seasonHistory[seasonHistory.length - 1].season);
+
+  renderArchiveContent();
+}
+
+function renderArchiveContent(){
+  const seasonSel = document.getElementById('archive-season-select');
+  const leagueSel = document.getElementById('archive-league-select');
+  const content = document.getElementById('archive-content');
+  if (!seasonSel.value) { content.innerHTML = ''; return; }
+
+  const entry = seasonHistory.find(s => String(s.season) === seasonSel.value);
+  const leagueKey = leagueSel.value;
+  if (!entry){ content.innerHTML = ''; return; }
+
+  const league = LEAGUES[leagueKey];
+  const rows = entry.standings ? entry.standings[leagueKey] : null;
+
+  let html = '';
+  if (!rows){
+    // Anciennes sauvegardes archivées avant ce correctif : seul le champion est connu.
+    html = `<div class="empty">Classement complet non disponible pour cette saison (archivée avant l'ajout de cette fonctionnalité) — seul le champion est connu : <strong>${entry.champions[leagueKey]}</strong>.</div>`;
+  } else {
+    const total = rows.length;
+    const relegCount = league.europe.releg + (league.europe.releg2 || 0);
+    html += `<div class="table-scroll"><table class="standings"><thead><tr>
+        <th>#</th><th>Équipe</th><th>J</th><th>V</th><th>N</th><th>D</th><th>BP</th><th>BC</th><th>Diff</th><th>Pts</th>
+      </tr></thead><tbody>`;
+    rows.forEach((r, i) => {
+      const pos = i + 1;
+      let zone = zoneClass(pos, league.europe);
+      if (pos > total - relegCount) zone = 'releg';
+      html += `<tr class="${zone}">
+        <td class="pos">${pos}</td>
+        <td class="team">${r.team}</td>
+        <td class="num">${r.p}</td>
+        <td class="num">${r.w}</td>
+        <td class="num">${r.d}</td>
+        <td class="num">${r.l}</td>
+        <td class="num">${r.gf}</td>
+        <td class="num">${r.ga}</td>
+        <td class="num">${r.gd > 0 ? '+' + r.gd : r.gd}</td>
+        <td class="pts">${r.pts}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  if (leagueKey === 'l1' && entry.scorersL1 && entry.scorersL1.length){
+    html += `<h2 style="margin:18px 0 10px;">Meilleurs buteurs — ${entry.label}</h2>
+      <div class="table-scroll"><table class="standings"><thead><tr>
+        <th>#</th><th>Joueur</th><th>Club</th><th>Buts</th>
+      </tr></thead><tbody>` +
+      entry.scorersL1.map((s, i) => `<tr>
+        <td class="pos">${i + 1}</td><td class="team">${s.name}</td><td>${s.team}</td><td class="pts">${s.goals}</td>
+      </tr>`).join('') +
+      `</tbody></table></div>`;
+  }
+
+  content.innerHTML = html;
+}
+
+document.getElementById('archive-season-select').addEventListener('change', renderArchiveContent);
+document.getElementById('archive-league-select').addEventListener('change', renderArchiveContent);
 
 /* =====================================================================
    MODE DIRECT — multiplex minute par minute pour la journée en cours
@@ -3962,6 +4072,7 @@ function render(){
   renderScorers();
   renderPalmares();
   renderSeasonHistory();
+  renderArchivePanel();
   saveToLocalStorage();
 }
 loadFromLocalStorage();
