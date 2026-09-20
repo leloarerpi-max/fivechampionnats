@@ -735,6 +735,7 @@
     <button class="tool-btn" id="multi-toggle">Vue multi-championnats</button>
     <button class="tool-btn" id="goto-palmares-btn">🏆 Aller au palmarès</button>
     <button class="tool-btn" id="next-season-btn">Saison suivante</button>
+    <button class="tool-btn" id="reset-all-btn" style="border-color:var(--red);color:var(--red);">🗑️ Réinitialiser toute la partie</button>
     <span class="quick-sim-group">
       <input type="number" id="quick-sim-count" min="1" max="20" value="3" inputmode="numeric">
       <button class="tool-btn" id="quick-sim-btn">Simuler N saisons (rapide)</button>
@@ -1004,6 +1005,9 @@ Object.assign(STRENGTHS, LIGUE2_EXTRA_STRENGTHS);
 // Copie figée des forces de départ, pour permettre de "réinitialiser aux valeurs par défaut"
 // depuis le panneau d'édition — STRENGTHS lui-même évolue ensuite au fil des saisons.
 const DEFAULT_STRENGTHS = { ...STRENGTHS };
+// Copie figée des réservoirs de montée/descente de départ (avant toute montée/descente réelle),
+// nécessaire pour un "Réinitialiser toute la partie" qui doit repartir de zéro à l'identique.
+const DEFAULT_RESERVE_POOLS = Object.fromEntries(Object.entries(RESERVE_POOLS).map(([k, v]) => [k, v.slice()]));
 
 /* ---------- Données des championnats ---------- */
 const LEAGUES = {
@@ -1060,6 +1064,9 @@ const LEAGUES = {
 };
 
 const DOMESTIC_KEYS = ["l1","pl","liga","seriea","bundes"];
+// Copie figée des 18/20 clubs de départ de chaque championnat domestique, avant toute
+// montée/descente — nécessaire pour un "Réinitialiser toute la partie" fidèle à l'état initial.
+const DEFAULT_LEAGUE_TEAMS = Object.fromEntries(DOMESTIC_KEYS.map(k => [k, LEAGUES[k].teams.slice()]));
 
 /* ---------- Génération du calendrier (round-robin) ---------- */
 function roundRobinRounds(teams){
@@ -2370,6 +2377,56 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   if (!confirm(`Réinitialiser ${LEAGUES[activeLeague].name} ? Tous les résultats simulés seront effacés.`)) return;
   initLeague(activeLeague);
   render();
+});
+
+document.getElementById('reset-all-btn').addEventListener('click', () => {
+  if (!confirm('Réinitialiser TOUTE la partie et repartir de la saison 1 ?\n\nCela efface définitivement : toutes les saisons jouées, le palmarès, l\'historique, les forces des clubs (remises aux valeurs par défaut), les effectifs/âges des joueurs, les montées/descentes déjà survenues, et les favoris.\n\nCette action est IRRÉVERSIBLE. Continuer ?')) return;
+
+  // --- Progression de saison en saison ---
+  currentSeason = 1;
+  seasonHistory = [];
+  pendingCdfWinner = null;
+  pendingEuroQualifiers = null;
+  favorites = new Set();
+
+  // --- Forces des clubs : retour aux valeurs de départ ---
+  Object.keys(STRENGTHS).forEach(k => delete STRENGTHS[k]);
+  Object.assign(STRENGTHS, DEFAULT_STRENGTHS);
+
+  // --- Effectifs des championnats domestiques : retour à la composition de départ
+  //     (annule toutes les montées/descentes accumulées au fil des saisons) ---
+  DOMESTIC_KEYS.forEach(key => { LEAGUES[key].teams = DEFAULT_LEAGUE_TEAMS[key].slice(); });
+  Object.keys(RESERVE_POOLS).forEach(key => { RESERVE_POOLS[key] = DEFAULT_RESERVE_POOLS[key].slice(); });
+
+  // --- Coupes d'Europe / Coupe de France : retour à "pas encore tirées au sort" ---
+  ['ucl', 'uel', 'coupefrance'].forEach(key => {
+    LEAGUES[key].teams = [];
+    LEAGUES[key].qualifiedCount = 0;
+    LEAGUES[key].wildcardCount = 0;
+  });
+
+  // --- Effectifs des joueurs (âges, statuts vedette, transferts accumulés) ---
+  Object.keys(ROSTERS).forEach(k => delete ROSTERS[k]);
+  Object.keys(AUTO_SQUADS).forEach(k => delete AUTO_SQUADS[k]);
+  POOL_CURSORS.clear();
+
+  // --- Recrée l'état "match" (calendriers, résultats, buteurs) de zéro pour tout le monde ---
+  Object.keys(LEAGUES).forEach(key => initLeague(key));
+
+  // --- Retour à l'affichage par défaut ---
+  activeLeague = 'l1';
+  viewMode = 'single';
+  multiMatchday = 0;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.key === 'l1'));
+  document.getElementById('multi-toggle').classList.remove('on');
+  document.getElementById('single-view').style.display = 'grid';
+  document.getElementById('multi-view').style.display = 'none';
+  ['sim-summary', 'season-movements', 'mercato-news'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+
+  render();
+  alert('La partie a été entièrement réinitialisée — te revoilà en saison 1 !');
 });
 
 document.getElementById('md-prev').addEventListener('click', () => {
