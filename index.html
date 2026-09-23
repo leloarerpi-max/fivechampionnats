@@ -428,6 +428,41 @@
   .multi-fixture .score.pending{color:var(--muted);font-weight:400;}
   .multi-ended{color:var(--muted);font-size:12px;font-style:italic;}
 
+  /* Vue multi-championnats : position/points/zone + enjeu du match, à côté de chaque équipe */
+  .mv-match{margin-bottom:2px;}
+  .mv-pos{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    font-weight:700;
+    padding:1px 4px;
+    border-radius:3px;
+    margin-right:4px;
+    color:var(--muted);
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    vertical-align:middle;
+  }
+  .mv-pos.ucl{color:#062015;background:var(--green);border-color:var(--green);}
+  .mv-pos.uel{color:#062015;background:var(--blue);border-color:var(--blue);}
+  .mv-pos.releg{color:#fff;background:var(--red);border-color:var(--red);}
+  .mv-pts{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--muted);
+    margin-left:5px;
+    vertical-align:middle;
+  }
+  .mv-stake{
+    text-align:center;
+    font-size:10.5px;
+    padding:2px 0 8px;
+    color:var(--amber);
+  }
+  .mv-stake-releg{color:var(--red);}
+  .mv-stake-europe{color:var(--green);}
+
   .euro-info{
     font-size:12px;
     color:var(--muted);
@@ -702,6 +737,23 @@
 
   /* ---------- Édition des forces des clubs ---------- */
   #strengths-list{max-height:52vh; overflow-y:auto;}
+
+  /* ---------- Effectifs ---------- */
+  .squad-group{margin-bottom:14px;}
+  .squad-group h4{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em;
+    color:var(--muted); text-transform:uppercase; margin:0 0 6px;
+  }
+  .squad-player{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:6px 4px; border-bottom:1px solid var(--panel-2); font-size:13px;
+  }
+  .squad-player:last-child{border-bottom:none;}
+  .squad-player .sp-name{display:flex; align-items:center; gap:6px;}
+  .squad-player .sp-star{color:var(--amber);}
+  .squad-player .sp-age{
+    font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:12px; min-width:44px; text-align:right;
+  }
   .strength-row{
     display:grid; grid-template-columns:1fr auto 90px; align-items:center; gap:10px;
     padding:6px 0; border-bottom:1px solid var(--panel-2); font-size:13px;
@@ -802,7 +854,13 @@
   </div>
 
   <div class="panel" id="scorers-panel">
-    <h2 id="scorers-title">Meilleurs buteurs</h2>
+    <div class="md-header">
+      <h2 style="margin:0;" id="scorers-title">Meilleurs buteurs</h2>
+      <div class="md-nav">
+        <button class="tool-btn" id="scorers-mode-season" style="font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;">Saison en cours</button>
+        <button class="tool-btn" id="scorers-mode-alltime" style="font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;">All-time</button>
+      </div>
+    </div>
     <div class="empty" id="scorers-empty">Aucun but inscrit pour l'instant dans ce championnat.</div>
     <table class="standings">
       <thead>
@@ -810,6 +868,17 @@
       </thead>
       <tbody id="scorers-body"></tbody>
     </table>
+  </div>
+
+  <div class="panel" id="effectifs-panel">
+    <h2 style="margin-bottom:14px;">Effectifs</h2>
+    <div class="empty" id="effectifs-empty">Aucun club disponible pour ce championnat pour l'instant.</div>
+    <div id="effectifs-controls" style="display:none;">
+      <div class="h2h-selectors" style="margin-bottom:16px;">
+        <select id="effectifs-club-select"></select>
+      </div>
+      <div id="effectifs-content"></div>
+    </div>
   </div>
 
   <div class="panel" id="multi-view" style="display:none;">
@@ -2292,7 +2361,7 @@ function endSeasonAndAdvance(silent){
     uelWinner: getCupChampion('uel'),
     coupeFranceWinner,
     standings: qualifiers.standingsByLeague, // classement complet des 5 championnats, pour l'onglet "Archives des saisons"
-    scorersL1: topScorers('l1', 20)          // photo du top buteurs L1 de la saison qui se termine
+    scorersByLeague: Object.fromEntries(DOMESTIC_KEYS.map(k => [k, Object.values(state[k].scorers)])) // buteurs complets des 5 championnats de la saison qui se termine
   });
   // Le vainqueur de cette saison ne sera éligible à l'Europa League qu'au tirage de la saison suivante.
   pendingCdfWinner = coupeFranceWinner;
@@ -2545,11 +2614,56 @@ function updateH2HResult(){
 }
 
 document.getElementById('h2h-a').addEventListener('change', updateH2HResult);
+document.getElementById('scorers-mode-season').addEventListener('click', () => { scorersViewMode = 'season'; renderScorers(); });
+document.getElementById('scorers-mode-alltime').addEventListener('click', () => { scorersViewMode = 'alltime'; renderScorers(); });
 document.getElementById('h2h-b').addEventListener('change', updateH2HResult);
 
 /* ---------- Vue multi-championnats ---------- */
 function maxMatchdays(){
   return Math.max(...DOMESTIC_KEYS.map(k => state[k].schedule.length));
+}
+
+// Zone d'un club à un instant donné du classement ('ucl' | 'uel' | 'releg' | '') — même logique
+// que dans le tableau de classement classique (renderStandings / zoneClass).
+function mvZoneForTeam(league, rows, idx){
+  const total = rows.length;
+  const relegCount = league.europe.releg + (league.europe.releg2 || 0);
+  const pos = idx + 1;
+  let zone = zoneClass(pos, league.europe);
+  if (pos > total - relegCount) zone = 'releg';
+  return zone;
+}
+// Un club est-il proche (± 6 pts) d'une frontière de zone Europe, ou de la zone de relégation ?
+// Renvoie 'europe', 'releg' ou null. Réutilisé pour le badge "enjeu du match" de la vue multi.
+function mvStakeForTeam(league, rows, team){
+  const idx = rows.findIndex(r => r.team === team);
+  if (idx < 0) return null;
+  const total = rows.length;
+  const relegCount = league.europe.releg + (league.europe.releg2 || 0);
+  const pts = rows[idx].pts;
+  const euroBoundary = league.europe.ucl + league.europe.uel;
+  const relegBoundary = total - relegCount;
+  if (euroBoundary >= 1 && euroBoundary <= total && Math.abs(pts - rows[euroBoundary - 1].pts) <= 6) return 'europe';
+  if (relegBoundary >= 1 && relegBoundary <= total && Math.abs(pts - rows[relegBoundary - 1].pts) <= 6) return 'releg';
+  return null;
+}
+function mvStakeBadgeHtml(league, rows, home, away){
+  const homeStake = mvStakeForTeam(league, rows, home);
+  const awayStake = mvStakeForTeam(league, rows, away);
+  if (homeStake === 'releg' || awayStake === 'releg') return '<div class="mv-stake mv-stake-releg">⚠️ Lutte pour le maintien</div>';
+  if (homeStake === 'europe' || awayStake === 'europe') return '<div class="mv-stake mv-stake-europe">🔥 Lutte pour l\'Europe</div>';
+  return '';
+}
+// Badge compact "3e · 45 pts" coloré selon la zone du club, à afficher à côté de son nom.
+function mvPosHtml(rowsByTeam, team){
+  const info = rowsByTeam[team];
+  if (!info) return '';
+  return `<span class="mv-pos ${info.zone}">${info.pos}e</span>`;
+}
+function mvPtsHtml(rowsByTeam, team){
+  const info = rowsByTeam[team];
+  if (!info) return '';
+  return `<span class="mv-pts">${info.pts}pts</span>`;
 }
 
 function renderMultiView(){
@@ -2575,16 +2689,28 @@ function renderMultiView(){
       return;
     }
 
+    // Classement calculé une seule fois par championnat pour ce rendu, puis indexé par club
+    // (position + points + zone), pour afficher ces infos directement à côté de chaque nom
+    // sans devoir aller consulter l'onglet Classement.
+    const rows = computeStandings(key);
+    const rowsByTeam = {};
+    rows.forEach((r, idx) => {
+      rowsByTeam[r.team] = { pos: idx + 1, pts: r.pts, zone: mvZoneForTeam(league, rows, idx) };
+    });
+
     const matches = st.schedule[multiMatchday];
     const results = st.results[multiMatchday];
     const fixturesHtml = matches.map((match, i) => {
       const [home, away] = match;
       const res = results[i];
       return `
-        <div class="multi-fixture">
-          <div class="home">${favToggleHtml(home)}${home}${formStreakHtml(home)}${fatigueBadgeHtml(home)}</div>
-          <div class="score ${res ? '' : 'pending'}">${res ? res[0] + ' – ' + res[1] : 'vs'}</div>
-          <div class="away">${favToggleHtml(away)}${away}${formStreakHtml(away)}${fatigueBadgeHtml(away)}</div>
+        <div class="mv-match">
+          <div class="multi-fixture">
+            <div class="home">${mvPosHtml(rowsByTeam, home)}${favToggleHtml(home)}${home}${formStreakHtml(home)}${fatigueBadgeHtml(home)}${mvPtsHtml(rowsByTeam, home)}</div>
+            <div class="score ${res ? '' : 'pending'}">${res ? res[0] + ' – ' + res[1] : 'vs'}</div>
+            <div class="away">${mvPosHtml(rowsByTeam, away)}${favToggleHtml(away)}${away}${formStreakHtml(away)}${fatigueBadgeHtml(away)}${mvPtsHtml(rowsByTeam, away)}</div>
+          </div>
+          ${mvStakeBadgeHtml(league, rows, home, away)}
         </div>
       `;
     }).join('');
@@ -3039,12 +3165,14 @@ function renderArchiveContent(){
     html += `</tbody></table></div>`;
   }
 
-  if (leagueKey === 'l1' && entry.scorersL1 && entry.scorersL1.length){
+  const scorersSnap = entry.scorersByLeague ? entry.scorersByLeague[leagueKey] : (leagueKey === 'l1' ? entry.scorersL1 : null);
+  if (scorersSnap && scorersSnap.length){
+    const topSnap = scorersSnap.slice().sort((a, b) => b.goals - a.goals).slice(0, 20);
     html += `<h2 style="margin:18px 0 10px;">Meilleurs buteurs — ${entry.label}</h2>
       <div class="table-scroll"><table class="standings"><thead><tr>
         <th>#</th><th>Joueur</th><th>Club</th><th>Buts</th>
       </tr></thead><tbody>` +
-      entry.scorersL1.map((s, i) => `<tr>
+      topSnap.map((s, i) => `<tr>
         <td class="pos">${i + 1}</td><td class="team">${s.name}</td><td>${s.team}</td><td class="pts">${s.goals}</td>
       </tr>`).join('') +
       `</tbody></table></div>`;
@@ -3097,7 +3225,7 @@ const PLAYERS = {
     { pos:"MIL", name:"João Neves" },
     { pos:"ATT", name:"Ousmane Dembélé" },
     { pos:"ATT", name:"Khvicha Kvaratskhelia" },
-    { pos:"ATT", name:"Ferran Torres" },
+    { pos:"ATT", name:"Bradley Barcola" },
     { pos:"ATT", name:"Mika Godts" },
     { pos:"ATT", name:"Senny Mayulu" }
   ],
@@ -3117,7 +3245,7 @@ const PLAYERS = {
     { pos:"MIL", name:"Abdallah Sima" },
     { pos:"MIL", name:"Amadou Haidara" },
     { pos:"MIL", name:"Michaël Cuisance" },
-    { pos:"ATT", name:"Florian Thauvin" },
+    { pos:"ATT", name:"Wesley Saïd" },
     { pos:"ATT", name:"Odsonne Édouard" },
     { pos:"ATT", name:"Franjo Ivanović" },
     { pos:"ATT", name:"Florian Sotoca" }
@@ -3155,7 +3283,7 @@ const PLAYERS = {
     { pos:"MIL", name:"Malick Fofana" },
     { pos:"MIL", name:"Tyler Morton" },
     { pos:"MIL", name:"Julien Duranville" },
-    { pos:"ATT", name:"Loïs Openda" },
+    { pos:"ATT", name:"Gift Orban" },
     { pos:"ATT", name:"Keito Nakamura" }
   ],
   "LOSC Lille": [
@@ -3192,8 +3320,8 @@ const PLAYERS = {
     { pos:"MIL", name:"Mahamadou Nagida" },
     { pos:"ATT", name:"Esteban Lepaul" },
     { pos:"ATT", name:"Mousa Al-Tamari" },
-    { pos:"ATT", name:"Eliezer Mayenda" },
-    { pos:"ATT", name:"Boulaye Dia" },
+    { pos:"ATT", name:"Seko Fofana" },
+    { pos:"ATT", name:"Ibrahim Salah" },
     { pos:"ATT", name:"Issa Soumaré" }
   ],
   "RC Strasbourg": [
@@ -3214,7 +3342,7 @@ const PLAYERS = {
     { pos:"ATT", name:"Joaquín Panichelli" },
     { pos:"ATT", name:"Sékou Mara" },
     { pos:"ATT", name:"Jacobo Ortega" },
-    { pos:"ATT", name:"Conrad Harder" }
+    { pos:"ATT", name:"Emanuel Emegha" }
   ],
   "Toulouse FC": [
     { pos:"GK", name:"Guillaume Restes" },
@@ -3236,7 +3364,7 @@ const PLAYERS = {
     { pos:"ATT", name:"Casper Tengstedt" }
   ],
   "AS Monaco": [
-    { pos:"GK", name:"Lukáš Hrádecký" },
+    { pos:"GK", name:"Philipp Köhn" },
     { pos:"DEF", name:"Thilo Kehrer" },
     { pos:"DEF", name:"Christian Mawissa" },
     { pos:"DEF", name:"Eric Dier" },
@@ -3299,7 +3427,7 @@ const PLAYERS = {
     { pos:"DEF", name:"Alec Georgen" },
     { pos:"MIL", name:"Noah Cadiou" },
     { pos:"MIL", name:"Théo Le Bris" },
-    { pos:"MIL", name:"Jean-Victor Makengo" },
+    { pos:"MIL", name:"Bamo Meïté" },
     { pos:"MIL", name:"Gabin Bernardeau" },
     { pos:"MIL", name:"Mamadou Koné" },
     { pos:"MIL", name:"Arsène Kouassi" },
@@ -3312,7 +3440,7 @@ const PLAYERS = {
     { pos:"ATT", name:"Souleymane Faye" }
   ],
   "Paris FC": [
-    { pos:"GK", name:"Kevin Trapp" },
+    { pos:"GK", name:"Obed Nkambadio" },
     { pos:"DEF", name:"Moustapha Mbow" },
     { pos:"DEF", name:"Otávio" },
     { pos:"DEF", name:"Hamari Traoré" },
@@ -3336,7 +3464,7 @@ const PLAYERS = {
     { pos:"DEF", name:"Junior Mwanga" },
     { pos:"DEF", name:"Elias Jelert" },
     { pos:"DEF", name:"Ayumu Seko" },
-    { pos:"MIL", name:"Amir Richardson" },
+    { pos:"MIL", name:"Christopher Operi" },
     { pos:"MIL", name:"Josh Maja" },
     { pos:"MIL", name:"Rassoul Ndiaye" },
     { pos:"MIL", name:"Kaito Mizuta" },
@@ -3358,7 +3486,7 @@ const PLAYERS = {
     { pos:"MIL", name:"Sofiane Diop" },
     { pos:"MIL", name:"Elye Wahi" },
     { pos:"MIL", name:"Axel Witsel" },
-    { pos:"MIL", name:"Nathan Ngoumou" },
+    { pos:"MIL", name:"Morgan Sanson" },
     { pos:"MIL", name:"Djibril Coulibaly" },
     { pos:"MIL", name:"Youssouf Ndayishimiye" },
     { pos:"MIL", name:"Jonathan Clauss" },
@@ -3420,6 +3548,1177 @@ const PLAYERS = {
     { pos:"ATT", name:"Habib Diallo" },
     { pos:"ATT", name:"Louis Mafouta" },
     { pos:"ATT", name:"William Harhouz" }
+  ],
+
+  // ===================== PREMIER LEAGUE =====================
+  "Arsenal": [
+    { pos:"GK", name:"David Raya" },
+    { pos:"GK", name:"Kepa Arrizabalaga" },
+    { pos:"DEF", name:"William Saliba" },
+    { pos:"DEF", name:"Gabriel Magalhães" },
+    { pos:"DEF", name:"Jurriën Timber" },
+    { pos:"DEF", name:"Riccardo Calafiori" },
+    { pos:"DEF", name:"Ben White" },
+    { pos:"DEF", name:"Myles Lewis-Skelly" },
+    { pos:"MIL", name:"Declan Rice" },
+    { pos:"MIL", name:"Martin Ødegaard" },
+    { pos:"MIL", name:"Mikel Merino" },
+    { pos:"MIL", name:"Martín Zubimendi" },
+    { pos:"ATT", name:"Bukayo Saka" },
+    { pos:"ATT", name:"Gabriel Martinelli" },
+    { pos:"ATT", name:"Kai Havertz" },
+    { pos:"ATT", name:"Leandro Trossard" },
+    { pos:"ATT", name:"Viktor Gyökeres" }
+  ],
+  "Aston Villa": [
+    { pos:"GK", name:"Emiliano Martínez" },
+    { pos:"GK", name:"Robin Olsen" },
+    { pos:"DEF", name:"Ezri Konsa" },
+    { pos:"DEF", name:"Pau Torres" },
+    { pos:"DEF", name:"Matty Cash" },
+    { pos:"DEF", name:"Lucas Digne" },
+    { pos:"DEF", name:"Ian Maatsen" },
+    { pos:"MIL", name:"Youri Tielemans" },
+    { pos:"MIL", name:"Boubacar Kamara" },
+    { pos:"MIL", name:"John McGinn" },
+    { pos:"MIL", name:"Amadou Onana" },
+    { pos:"MIL", name:"Morgan Rogers" },
+    { pos:"ATT", name:"Ollie Watkins" },
+    { pos:"ATT", name:"Jhon Durán" },
+    { pos:"ATT", name:"Leon Bailey" },
+    { pos:"ATT", name:"Donyell Malen" }
+  ],
+  "Bournemouth": [
+    { pos:"GK", name:"Đorđe Petrović" },
+    { pos:"GK", name:"Mark Travers" },
+    { pos:"DEF", name:"Illia Zabarnyi" },
+    { pos:"DEF", name:"Marcos Senesi" },
+    { pos:"DEF", name:"Adam Smith" },
+    { pos:"DEF", name:"Adrien Truffert" },
+    { pos:"DEF", name:"Julián Araujo" },
+    { pos:"MIL", name:"Ryan Christie" },
+    { pos:"MIL", name:"Lewis Cook" },
+    { pos:"MIL", name:"Alex Scott" },
+    { pos:"MIL", name:"Tyler Adams" },
+    { pos:"ATT", name:"Antoine Semenyo" },
+    { pos:"ATT", name:"Justin Kluivert" },
+    { pos:"ATT", name:"Evanilson" },
+    { pos:"ATT", name:"Dango Ouattara" }
+  ],
+  "Brentford": [
+    { pos:"GK", name:"Hákon Rafn Valdimarsson" },
+    { pos:"GK", name:"Thomas Strakosha" },
+    { pos:"DEF", name:"Nathan Collins" },
+    { pos:"DEF", name:"Ethan Pinnock" },
+    { pos:"DEF", name:"Rico Henry" },
+    { pos:"DEF", name:"Sepp van den Berg" },
+    { pos:"DEF", name:"Aaron Hickey" },
+    { pos:"MIL", name:"Christian Nørgaard" },
+    { pos:"MIL", name:"Vitaly Janelt" },
+    { pos:"MIL", name:"Mikkel Damsgaard" },
+    { pos:"MIL", name:"Frank Onyeka" },
+    { pos:"ATT", name:"Kevin Schade" },
+    { pos:"ATT", name:"Igor Thiago" },
+    { pos:"ATT", name:"Keane Lewis-Potter" },
+    { pos:"ATT", name:"Gustavo Nunes" }
+  ],
+  "Brighton & Hove Albion": [
+    { pos:"GK", name:"Bart Verbruggen" },
+    { pos:"GK", name:"Jason Steele" },
+    { pos:"DEF", name:"Lewis Dunk" },
+    { pos:"DEF", name:"Jan Paul van Hecke" },
+    { pos:"DEF", name:"Pervis Estupiñán" },
+    { pos:"DEF", name:"Tariq Lamptey" },
+    { pos:"DEF", name:"Igor Julio" },
+    { pos:"MIL", name:"Carlos Baleba" },
+    { pos:"MIL", name:"Billy Gilmour" },
+    { pos:"MIL", name:"James Milner" },
+    { pos:"MIL", name:"Yasin Ayari" },
+    { pos:"ATT", name:"Kaoru Mitoma" },
+    { pos:"ATT", name:"João Pedro" },
+    { pos:"ATT", name:"Danny Welbeck" },
+    { pos:"ATT", name:"Simon Adingra" }
+  ],
+  "Chelsea": [
+    { pos:"GK", name:"Robert Sánchez" },
+    { pos:"GK", name:"Filip Jörgensen" },
+    { pos:"DEF", name:"Levi Colwill" },
+    { pos:"DEF", name:"Wesley Fofana" },
+    { pos:"DEF", name:"Reece James" },
+    { pos:"DEF", name:"Marc Cucurella" },
+    { pos:"DEF", name:"Malo Gusto" },
+    { pos:"DEF", name:"Trevoh Chalobah" },
+    { pos:"MIL", name:"Enzo Fernández" },
+    { pos:"MIL", name:"Moisés Caicedo" },
+    { pos:"MIL", name:"Romeo Lavia" },
+    { pos:"MIL", name:"Cole Palmer" },
+    { pos:"ATT", name:"Nicolas Jackson" },
+    { pos:"ATT", name:"Liam Delap" },
+    { pos:"ATT", name:"Pedro Neto" },
+    { pos:"ATT", name:"Jadon Sancho" }
+  ],
+  "Coventry City": [
+    { pos:"GK", name:"Ben Wilson" },
+    { pos:"DEF", name:"Bobby Thomas" },
+    { pos:"DEF", name:"Luis Binks" },
+    { pos:"DEF", name:"Jake Bidwell" },
+    { pos:"DEF", name:"Josh Eccles" },
+    { pos:"MIL", name:"Ben Sheaf" },
+    { pos:"MIL", name:"Jack Rudoni" },
+    { pos:"MIL", name:"Josh Wilson-Esbrand" },
+    { pos:"MIL", name:"Josh Key" },
+    { pos:"ATT", name:"Ellis Simms" },
+    { pos:"ATT", name:"Haji Wright" },
+    { pos:"ATT", name:"Tatsuhiro Sakamoto" },
+    { pos:"ATT", name:"Ephron Mason-Clark" }
+  ],
+  "Crystal Palace": [
+    { pos:"GK", name:"Dean Henderson" },
+    { pos:"GK", name:"Remi Matthews" },
+    { pos:"DEF", name:"Marc Guéhi" },
+    { pos:"DEF", name:"Chris Richards" },
+    { pos:"DEF", name:"Tyrick Mitchell" },
+    { pos:"DEF", name:"Daniel Muñoz" },
+    { pos:"DEF", name:"Maxence Lacroix" },
+    { pos:"MIL", name:"Adam Wharton" },
+    { pos:"MIL", name:"Will Hughes" },
+    { pos:"MIL", name:"Cheick Doucouré" },
+    { pos:"MIL", name:"Eberechi Eze" },
+    { pos:"ATT", name:"Jean-Philippe Mateta" },
+    { pos:"ATT", name:"Ismaïla Sarr" },
+    { pos:"ATT", name:"Daniel Jebbison" }
+  ],
+  "Everton": [
+    { pos:"GK", name:"Jordan Pickford" },
+    { pos:"GK", name:"João Virgínia" },
+    { pos:"DEF", name:"Jarrad Branthwaite" },
+    { pos:"DEF", name:"James Tarkowski" },
+    { pos:"DEF", name:"Vitaliy Mykolenko" },
+    { pos:"DEF", name:"Jake O'Brien" },
+    { pos:"DEF", name:"Nathan Patterson" },
+    { pos:"MIL", name:"Idrissa Gueye" },
+    { pos:"MIL", name:"James Garner" },
+    { pos:"MIL", name:"Iliman Ndiaye" },
+    { pos:"MIL", name:"Jack Grealish" },
+    { pos:"ATT", name:"Dominic Calvert-Lewin" },
+    { pos:"ATT", name:"Beto" },
+    { pos:"ATT", name:"Jesper Lindstrøm" }
+  ],
+  "Fulham": [
+    { pos:"GK", name:"Bernd Leno" },
+    { pos:"GK", name:"Benjamin Lecomte" },
+    { pos:"DEF", name:"Calvin Bassey" },
+    { pos:"DEF", name:"Joachim Andersen" },
+    { pos:"DEF", name:"Antonee Robinson" },
+    { pos:"DEF", name:"Kenny Tete" },
+    { pos:"DEF", name:"Issa Diop" },
+    { pos:"MIL", name:"João Palhinha" },
+    { pos:"MIL", name:"Sander Berge" },
+    { pos:"MIL", name:"Emile Smith Rowe" },
+    { pos:"MIL", name:"Alex Iwobi" },
+    { pos:"ATT", name:"Raúl Jiménez" },
+    { pos:"ATT", name:"Rodrigo Muniz" },
+    { pos:"ATT", name:"Adama Traoré" }
+  ],
+  "Hull City": [
+    { pos:"GK", name:"Ivor Pandur" },
+    { pos:"DEF", name:"Jacob Greaves" },
+    { pos:"DEF", name:"Sean McLoughlin" },
+    { pos:"DEF", name:"Alfie Jones" },
+    { pos:"DEF", name:"Charlie Hughes" },
+    { pos:"MIL", name:"Jean Michaël Seri" },
+    { pos:"MIL", name:"Ozan Tufan" },
+    { pos:"MIL", name:"Fábio Carvalho" },
+    { pos:"MIL", name:"Xavier Simons" },
+    { pos:"ATT", name:"Ryan Giles" },
+    { pos:"ATT", name:"Abu Kamara" },
+    { pos:"ATT", name:"Ivor Panteliadis" },
+    { pos:"ATT", name:"Regan Slater" }
+  ],
+  "Ipswich Town": [
+    { pos:"GK", name:"Aro Muric" },
+    { pos:"DEF", name:"Cameron Burgess" },
+    { pos:"DEF", name:"Dara O'Shea" },
+    { pos:"DEF", name:"Axel Tuanzebe" },
+    { pos:"DEF", name:"Leif Davis" },
+    { pos:"MIL", name:"Sam Morsy" },
+    { pos:"MIL", name:"Jens Cajuste" },
+    { pos:"MIL", name:"Kalvin Phillips" },
+    { pos:"MIL", name:"Conor Chaplin" },
+    { pos:"ATT", name:"Ben Johnson" },
+    { pos:"ATT", name:"Omari Hutchinson" },
+    { pos:"ATT", name:"George Hirst" },
+    { pos:"ATT", name:"Jack Clarke" }
+  ],
+  "Leeds United": [
+    { pos:"GK", name:"Illan Meslier" },
+    { pos:"GK", name:"Karl Darlow" },
+    { pos:"DEF", name:"Pascal Struijk" },
+    { pos:"DEF", name:"Joe Rodon" },
+    { pos:"DEF", name:"Ethan Ampadu" },
+    { pos:"DEF", name:"Jayden Bogle" },
+    { pos:"DEF", name:"Sam Byram" },
+    { pos:"MIL", name:"Ilia Gruev" },
+    { pos:"MIL", name:"Ao Tanaka" },
+    { pos:"MIL", name:"Brenden Aaronson" },
+    { pos:"MIL", name:"Daniel James" },
+    { pos:"ATT", name:"Joel Piroe" },
+    { pos:"ATT", name:"Mateo Joseph" },
+    { pos:"ATT", name:"Wilfried Gnonto" }
+  ],
+  "Liverpool": [
+    { pos:"GK", name:"Alisson Becker" },
+    { pos:"GK", name:"Caoimhín Kelleher" },
+    { pos:"DEF", name:"Virgil van Dijk" },
+    { pos:"DEF", name:"Ibrahima Konaté" },
+    { pos:"DEF", name:"Jeremie Frimpong" },
+    { pos:"DEF", name:"Milos Kerkez" },
+    { pos:"DEF", name:"Andrew Robertson" },
+    { pos:"MIL", name:"Alexis Mac Allister" },
+    { pos:"MIL", name:"Dominik Szoboszlai" },
+    { pos:"MIL", name:"Ryan Gravenberch" },
+    { pos:"MIL", name:"Florian Wirtz" },
+    { pos:"ATT", name:"Mohamed Salah" },
+    { pos:"ATT", name:"Alexander Isak" },
+    { pos:"ATT", name:"Cody Gakpo" },
+    { pos:"ATT", name:"Hugo Ekitike" },
+    { pos:"ATT", name:"Federico Chiesa" }
+  ],
+  "Manchester City": [
+    { pos:"GK", name:"Ederson" },
+    { pos:"GK", name:"Stefan Ortega" },
+    { pos:"DEF", name:"Rúben Dias" },
+    { pos:"DEF", name:"Joško Gvardiol" },
+    { pos:"DEF", name:"Nathan Aké" },
+    { pos:"DEF", name:"Kyle Walker" },
+    { pos:"DEF", name:"Manuel Akanji" },
+    { pos:"MIL", name:"Rodri" },
+    { pos:"MIL", name:"Nico González" },
+    { pos:"MIL", name:"Bernardo Silva" },
+    { pos:"MIL", name:"Mateo Kovačić" },
+    { pos:"ATT", name:"Erling Haaland" },
+    { pos:"ATT", name:"Phil Foden" },
+    { pos:"ATT", name:"Jérémy Doku" },
+    { pos:"ATT", name:"Savinho" }
+  ],
+  "Manchester United": [
+    { pos:"GK", name:"André Onana" },
+    { pos:"GK", name:"Senne Lammens" },
+    { pos:"DEF", name:"Lisandro Martínez" },
+    { pos:"DEF", name:"Matthijs de Ligt" },
+    { pos:"DEF", name:"Noussair Mazraoui" },
+    { pos:"DEF", name:"Diogo Dalot" },
+    { pos:"DEF", name:"Leny Yoro" },
+    { pos:"MIL", name:"Casemiro" },
+    { pos:"MIL", name:"Manuel Ugarte" },
+    { pos:"MIL", name:"Bruno Fernandes" },
+    { pos:"MIL", name:"Kobbie Mainoo" },
+    { pos:"ATT", name:"Matheus Cunha" },
+    { pos:"ATT", name:"Bryan Mbeumo" },
+    { pos:"ATT", name:"Benjamin Šeško" },
+    { pos:"ATT", name:"Alejandro Garnacho" },
+    { pos:"ATT", name:"Joshua Zirkzee" }
+  ],
+  "Newcastle United": [
+    { pos:"GK", name:"Nick Pope" },
+    { pos:"GK", name:"Aaron Ramsdale" },
+    { pos:"DEF", name:"Sven Botman" },
+    { pos:"DEF", name:"Fabian Schär" },
+    { pos:"DEF", name:"Kieran Trippier" },
+    { pos:"DEF", name:"Dan Burn" },
+    { pos:"DEF", name:"Malick Thiaw" },
+    { pos:"MIL", name:"Bruno Guimarães" },
+    { pos:"MIL", name:"Sandro Tonali" },
+    { pos:"MIL", name:"Joelinton" },
+    { pos:"MIL", name:"Jacob Ramsey" },
+    { pos:"ATT", name:"Yoane Wissa" },
+    { pos:"ATT", name:"Anthony Gordon" },
+    { pos:"ATT", name:"Anthony Elanga" },
+    { pos:"ATT", name:"Harvey Barnes" }
+  ],
+  "Nottingham Forest": [
+    { pos:"GK", name:"Matz Sels" },
+    { pos:"GK", name:"Carlos Miguel" },
+    { pos:"DEF", name:"Murillo" },
+    { pos:"DEF", name:"Nikola Milenković" },
+    { pos:"DEF", name:"Ola Aina" },
+    { pos:"DEF", name:"Neco Williams" },
+    { pos:"MIL", name:"Elliot Anderson" },
+    { pos:"MIL", name:"Ibrahim Sangaré" },
+    { pos:"MIL", name:"Morgan Gibbs-White" },
+    { pos:"MIL", name:"Nicolás Domínguez" },
+    { pos:"ATT", name:"Chris Wood" },
+    { pos:"ATT", name:"Callum Hudson-Odoi" },
+    { pos:"ATT", name:"Dan Ndoye" },
+    { pos:"ATT", name:"Taiwo Awoniyi" }
+  ],
+  "Sunderland": [
+    { pos:"GK", name:"Anthony Patterson" },
+    { pos:"DEF", name:"Dan Ballard" },
+    { pos:"DEF", name:"Luke O'Nien" },
+    { pos:"DEF", name:"Trai Hume" },
+    { pos:"DEF", name:"Dennis Cirkin" },
+    { pos:"MIL", name:"Dan Neil" },
+    { pos:"MIL", name:"Chris Rigg" },
+    { pos:"MIL", name:"Patrick Roberts" },
+    { pos:"MIL", name:"Enzo Le Fée" },
+    { pos:"ATT", name:"Wilson Isidor" },
+    { pos:"ATT", name:"Eliezer Mayenda" },
+    { pos:"ATT", name:"Romaine Mundle" },
+    { pos:"ATT", name:"Ahmed Abdullahi" }
+  ],
+  "Tottenham Hotspur": [
+    { pos:"GK", name:"Guglielmo Vicario" },
+    { pos:"GK", name:"Fraser Forster" },
+    { pos:"DEF", name:"Cristian Romero" },
+    { pos:"DEF", name:"Micky van de Ven" },
+    { pos:"DEF", name:"Pedro Porro" },
+    { pos:"DEF", name:"Destiny Udogie" },
+    { pos:"DEF", name:"Radu Drăgușin" },
+    { pos:"MIL", name:"Yves Bissouma" },
+    { pos:"MIL", name:"Rodrigo Bentancur" },
+    { pos:"MIL", name:"James Maddison" },
+    { pos:"MIL", name:"Pape Matar Sarr" },
+    { pos:"ATT", name:"Son Heung-min" },
+    { pos:"ATT", name:"Dominic Solanke" },
+    { pos:"ATT", name:"Brennan Johnson" },
+    { pos:"ATT", name:"Dejan Kulusevski" }
+  ],
+
+  // ===================== LIGA =====================
+  "Real Madrid": [
+    { pos:"GK", name:"Thibaut Courtois" },
+    { pos:"GK", name:"Andriy Lunin" },
+    { pos:"DEF", name:"Éder Militão" },
+    { pos:"DEF", name:"Antonio Rüdiger" },
+    { pos:"DEF", name:"Dean Huijsen" },
+    { pos:"DEF", name:"Trent Alexander-Arnold" },
+    { pos:"DEF", name:"Ferland Mendy" },
+    { pos:"DEF", name:"David Alaba" },
+    { pos:"MIL", name:"Jude Bellingham" },
+    { pos:"MIL", name:"Eduardo Camavinga" },
+    { pos:"MIL", name:"Aurélien Tchouaméni" },
+    { pos:"MIL", name:"Federico Valverde" },
+    { pos:"MIL", name:"Arda Güler" },
+    { pos:"ATT", name:"Kylian Mbappé" },
+    { pos:"ATT", name:"Vinícius Júnior" },
+    { pos:"ATT", name:"Rodrygo" },
+    { pos:"ATT", name:"Endrick" }
+  ],
+  "FC Barcelone": [
+    { pos:"GK", name:"Joan García" },
+    { pos:"GK", name:"Wojciech Szczęsny" },
+    { pos:"DEF", name:"Pau Cubarsí" },
+    { pos:"DEF", name:"Ronald Araújo" },
+    { pos:"DEF", name:"Jules Koundé" },
+    { pos:"DEF", name:"Alejandro Balde" },
+    { pos:"DEF", name:"Íñigo Martínez" },
+    { pos:"MIL", name:"Pedri" },
+    { pos:"MIL", name:"Gavi" },
+    { pos:"MIL", name:"Frenkie de Jong" },
+    { pos:"MIL", name:"Marc Casadó" },
+    { pos:"MIL", name:"Dani Olmo" },
+    { pos:"ATT", name:"Robert Lewandowski" },
+    { pos:"ATT", name:"Lamine Yamal" },
+    { pos:"ATT", name:"Raphinha" },
+    { pos:"ATT", name:"Ferran Torres" },
+    { pos:"ATT", name:"Marcus Rashford" }
+  ],
+  "Atlético de Madrid": [
+    { pos:"GK", name:"Jan Oblak" },
+    { pos:"GK", name:"Juan Musso" },
+    { pos:"DEF", name:"José María Giménez" },
+    { pos:"DEF", name:"Robin Le Normand" },
+    { pos:"DEF", name:"Nahuel Molina" },
+    { pos:"DEF", name:"Clément Lenglet" },
+    { pos:"DEF", name:"Javi Galán" },
+    { pos:"MIL", name:"Rodrigo De Paul" },
+    { pos:"MIL", name:"Koke" },
+    { pos:"MIL", name:"Pablo Barrios" },
+    { pos:"MIL", name:"Conor Gallagher" },
+    { pos:"MIL", name:"Johnny Cardoso" },
+    { pos:"ATT", name:"Julián Álvarez" },
+    { pos:"ATT", name:"Antoine Griezmann" },
+    { pos:"ATT", name:"Alexander Sørloth" },
+    { pos:"ATT", name:"Giacomo Raspadori" }
+  ],
+  "Athletic Bilbao": [
+    { pos:"GK", name:"Unai Simón" },
+    { pos:"GK", name:"Julen Agirrezabala" },
+    { pos:"DEF", name:"Yeray Álvarez" },
+    { pos:"DEF", name:"Dani Vivian" },
+    { pos:"DEF", name:"Andoni Gorosabel" },
+    { pos:"DEF", name:"Yuri Berchiche" },
+    { pos:"MIL", name:"Mikel Vesga" },
+    { pos:"MIL", name:"Óscar de Marcos" },
+    { pos:"MIL", name:"Unai Gómez" },
+    { pos:"MIL", name:"Beñat Prados" },
+    { pos:"ATT", name:"Nico Williams" },
+    { pos:"ATT", name:"Iñaki Williams" },
+    { pos:"ATT", name:"Gorka Guruzeta" },
+    { pos:"ATT", name:"Álex Berenguer" }
+  ],
+  "Villarreal": [
+    { pos:"GK", name:"Diego Conde" },
+    { pos:"GK", name:"Luiz Júnior" },
+    { pos:"DEF", name:"Juan Foyth" },
+    { pos:"DEF", name:"Logan Costa" },
+    { pos:"DEF", name:"Alfonso Pedraza" },
+    { pos:"DEF", name:"Rafa Marín" },
+    { pos:"MIL", name:"Dani Parejo" },
+    { pos:"MIL", name:"Santi Comesaña" },
+    { pos:"MIL", name:"Pape Gueye" },
+    { pos:"MIL", name:"Álex Baena" },
+    { pos:"ATT", name:"Ayoze Pérez" },
+    { pos:"ATT", name:"Nicolas Pépé" },
+    { pos:"ATT", name:"Thierno Barry" },
+    { pos:"ATT", name:"Tajon Buchanan" }
+  ],
+  "Real Betis": [
+    { pos:"GK", name:"Álvaro Valles" },
+    { pos:"GK", name:"Fran Vieites" },
+    { pos:"DEF", name:"Natan" },
+    { pos:"DEF", name:"Marc Bartra" },
+    { pos:"DEF", name:"Héctor Bellerín" },
+    { pos:"DEF", name:"Ricardo Rodríguez" },
+    { pos:"MIL", name:"Marc Roca" },
+    { pos:"MIL", name:"Sergi Altimira" },
+    { pos:"MIL", name:"Nelson Deossa" },
+    { pos:"MIL", name:"Isco" },
+    { pos:"ATT", name:"Antony" },
+    { pos:"ATT", name:"Cédric Bakambu" },
+    { pos:"ATT", name:"Ez Abde" },
+    { pos:"ATT", name:"Chimy Ávila" }
+  ],
+  "Real Sociedad": [
+    { pos:"GK", name:"Álex Remiro" },
+    { pos:"GK", name:"Yerai Yanguas" },
+    { pos:"DEF", name:"Jon Aramburu" },
+    { pos:"DEF", name:"Jon Pacheco" },
+    { pos:"DEF", name:"Aritz Elustondo" },
+    { pos:"DEF", name:"Diego Rico" },
+    { pos:"MIL", name:"Beñat Turrientes" },
+    { pos:"MIL", name:"Modibo Sagnan" },
+    { pos:"MIL", name:"Brais Méndez" },
+    { pos:"MIL", name:"Sergio Gómez" },
+    { pos:"ATT", name:"Mikel Oyarzabal" },
+    { pos:"ATT", name:"Take Kubo" },
+    { pos:"ATT", name:"Umar Sadiq" },
+    { pos:"ATT", name:"Orri Óskarsson" }
+  ],
+  "Celta de Vigo": [
+    { pos:"GK", name:"Vicente Guaita" },
+    { pos:"DEF", name:"Carl Starfelt" },
+    { pos:"DEF", name:"Óscar Mingueza" },
+    { pos:"DEF", name:"Javi Rueda" },
+    { pos:"DEF", name:"Marcos Alonso" },
+    { pos:"MIL", name:"Fran Beltrán" },
+    { pos:"MIL", name:"Damián Rodríguez" },
+    { pos:"MIL", name:"Óscar Marcos" },
+    { pos:"MIL", name:"Ilaix Moriba" },
+    { pos:"ATT", name:"Iago Aspas" },
+    { pos:"ATT", name:"Borja Iglesias" },
+    { pos:"ATT", name:"Williot Swedberg" },
+    { pos:"ATT", name:"Pablo Durán" }
+  ],
+  "Rayo Vallecano": [
+    { pos:"GK", name:"Augusto Batalla" },
+    { pos:"DEF", name:"Abdul Mumin" },
+    { pos:"DEF", name:"Iván Balliu" },
+    { pos:"DEF", name:"Florian Lejeune" },
+    { pos:"DEF", name:"Pep Chavarría" },
+    { pos:"MIL", name:"Óscar Valentín" },
+    { pos:"MIL", name:"Unai López" },
+    { pos:"MIL", name:"Pathé Ciss" },
+    { pos:"MIL", name:"Isi Palazón" },
+    { pos:"ATT", name:"Álvaro García" },
+    { pos:"ATT", name:"Jorge de Frutos" },
+    { pos:"ATT", name:"Randy Nteka" },
+    { pos:"ATT", name:"Sofian Chakla" }
+  ],
+  "Sevilla FC": [
+    { pos:"GK", name:"Ørjan Nyland" },
+    { pos:"DEF", name:"Loïc Badé" },
+    { pos:"DEF", name:"Kike Salas" },
+    { pos:"DEF", name:"Marcao" },
+    { pos:"DEF", name:"Adrià Pedrosa" },
+    { pos:"MIL", name:"Nemanja Gudelj" },
+    { pos:"MIL", name:"Lucien Agoumé" },
+    { pos:"MIL", name:"Djibril Sow" },
+    { pos:"MIL", name:"Alfon González" },
+    { pos:"ATT", name:"Isaac Romero" },
+    { pos:"ATT", name:"Chidera Ejuke" },
+    { pos:"ATT", name:"Rubén Vargas" },
+    { pos:"ATT", name:"Akor Adams" }
+  ],
+  "CA Osasuna": [
+    { pos:"GK", name:"Sergio Herrera" },
+    { pos:"DEF", name:"David García" },
+    { pos:"DEF", name:"Alejandro Catena" },
+    { pos:"DEF", name:"Jesús Areso" },
+    { pos:"DEF", name:"Juan Cruz" },
+    { pos:"MIL", name:"Lucas Torró" },
+    { pos:"MIL", name:"Moi Gómez" },
+    { pos:"MIL", name:"Aimar Oroz" },
+    { pos:"MIL", name:"Rubén García" },
+    { pos:"ATT", name:"Ante Budimir" },
+    { pos:"ATT", name:"Bryan Zaragoza" },
+    { pos:"ATT", name:"Abde Rebbach" }
+  ],
+  "Getafe CF": [
+    { pos:"GK", name:"David Soria" },
+    { pos:"DEF", name:"Domingos Duarte" },
+    { pos:"DEF", name:"Djené Dakonam" },
+    { pos:"DEF", name:"Juan Iglesias" },
+    { pos:"DEF", name:"Jorge Cuenca" },
+    { pos:"MIL", name:"Luis Milla" },
+    { pos:"MIL", name:"Mario Martín" },
+    { pos:"MIL", name:"Nemanja Maksimović" },
+    { pos:"MIL", name:"Yellu Santiago" },
+    { pos:"ATT", name:"Borja Mayoral" },
+    { pos:"ATT", name:"Adrián Liso" },
+    { pos:"ATT", name:"Mauro Arambarri" }
+  ],
+  "Valencia CF": [
+    { pos:"GK", name:"Giorgi Mamardashvili" },
+    { pos:"DEF", name:"Cristhian Mosquera" },
+    { pos:"DEF", name:"Mouctar Diakhaby" },
+    { pos:"DEF", name:"Thierry Correia" },
+    { pos:"DEF", name:"José Gayà" },
+    { pos:"MIL", name:"Javi Guerra" },
+    { pos:"MIL", name:"Pepelu" },
+    { pos:"MIL", name:"Baraz Méndez" },
+    { pos:"MIL", name:"Dani Raba" },
+    { pos:"ATT", name:"Hugo Duro" },
+    { pos:"ATT", name:"Diego López" },
+    { pos:"ATT", name:"Rafa Mir" },
+    { pos:"ATT", name:"Luis Rioja" }
+  ],
+  "Deportivo Alavés": [
+    { pos:"GK", name:"Antonio Sivera" },
+    { pos:"DEF", name:"Aleix Vidal" },
+    { pos:"DEF", name:"Abdel Abqar" },
+    { pos:"DEF", name:"Manu Sánchez" },
+    { pos:"DEF", name:"Diego García" },
+    { pos:"MIL", name:"Antonio Blanco" },
+    { pos:"MIL", name:"Jon Guridi" },
+    { pos:"MIL", name:"Ander Guevara" },
+    { pos:"MIL", name:"Jorge Suárez" },
+    { pos:"ATT", name:"Samu Omorodion" },
+    { pos:"ATT", name:"Toni Martínez" },
+    { pos:"ATT", name:"Carlos Vicente" }
+  ],
+  "RCD Espanyol": [
+    { pos:"GK", name:"Marko Dmitrović" },
+    { pos:"DEF", name:"Leandro Cabrera" },
+    { pos:"DEF", name:"Omar El Hilali" },
+    { pos:"DEF", name:"Kike García" },
+    { pos:"DEF", name:"Brian Oliván" },
+    { pos:"MIL", name:"Pol Lozano" },
+    { pos:"MIL", name:"Edu Expósito" },
+    { pos:"MIL", name:"Urko González de Zárate" },
+    { pos:"ATT", name:"Javi Puado" },
+    { pos:"ATT", name:"Pere Milla" },
+    { pos:"ATT", name:"Roberto Fernández" },
+    { pos:"ATT", name:"Dorian Babunski" }
+  ],
+  "Levante UD": [
+    { pos:"GK", name:"Isaac Cuenca" },
+    { pos:"DEF", name:"Aitor Fernández" },
+    { pos:"DEF", name:"Iker Losada" },
+    { pos:"DEF", name:"Vencedor" },
+    { pos:"DEF", name:"Álex Muñoz" },
+    { pos:"MIL", name:"Unai Vencedor" },
+    { pos:"MIL", name:"Kervin Arriaga" },
+    { pos:"MIL", name:"Sergio De Tomás" },
+    { pos:"ATT", name:"Iván Romero" },
+    { pos:"ATT", name:"Etta Eyong" },
+    { pos:"ATT", name:"Carlos Álvarez" },
+    { pos:"ATT", name:"José Arnaiz" }
+  ],
+  "Elche CF": [
+    { pos:"GK", name:"Iñaki Peña" },
+    { pos:"DEF", name:"Diego González" },
+    { pos:"DEF", name:"Chust" },
+    { pos:"DEF", name:"Álvaro Núñez" },
+    { pos:"DEF", name:"Adrián Butzke" },
+    { pos:"MIL", name:"Josán" },
+    { pos:"MIL", name:"Álex Sola" },
+    { pos:"MIL", name:"Rafa Mora" },
+    { pos:"ATT", name:"André Silva" },
+    { pos:"ATT", name:"Álvaro Rodríguez" },
+    { pos:"ATT", name:"Rodrigo Mendoza" }
+  ],
+  "RC Deportivo": [
+    { pos:"GK", name:"Ian Mackay" },
+    { pos:"DEF", name:"Loureiro" },
+    { pos:"DEF", name:"Fer Carrasco" },
+    { pos:"DEF", name:"David Mella" },
+    { pos:"MIL", name:"Yeremi Santos" },
+    { pos:"MIL", name:"Antonio Villa" },
+    { pos:"MIL", name:"Dani Barcia" },
+    { pos:"ATT", name:"Yeremay Hernández" },
+    { pos:"ATT", name:"Lucas Pérez" },
+    { pos:"ATT", name:"Mario Soriano" }
+  ],
+  "Málaga CF": [
+    { pos:"GK", name:"Alfonso Herrero" },
+    { pos:"DEF", name:"Antonio Sánchez" },
+    { pos:"DEF", name:"Einar Galilea" },
+    { pos:"DEF", name:"Manu Molina" },
+    { pos:"DEF", name:"Víctor García" },
+    { pos:"MIL", name:"Kevin Medina" },
+    { pos:"MIL", name:"Haitam Aatti" },
+    { pos:"MIL", name:"Roberto" },
+    { pos:"ATT", name:"Roko Baturina" },
+    { pos:"ATT", name:"Dioni Villalba" },
+    { pos:"ATT", name:"Carlos Puga" }
+  ],
+  "Racing de Santander": [
+    { pos:"GK", name:"Andrés Martín" },
+    { pos:"DEF", name:"Pablo Rodríguez" },
+    { pos:"DEF", name:"Íñigo Sainz-Maza" },
+    { pos:"DEF", name:"Manu Hernando" },
+    { pos:"DEF", name:"Álvaro Mantilla" },
+    { pos:"MIL", name:"Íñigo Vicente" },
+    { pos:"MIL", name:"Jorge Sáenz" },
+    { pos:"MIL", name:"Aldasoro" },
+    { pos:"ATT", name:"Iván Sánchez" },
+    { pos:"ATT", name:"Karrikaburu" },
+    { pos:"ATT", name:"Jeison Lucumí" }
+  ],
+
+  // ===================== SERIE A =====================
+  "SSC Napoli": [
+    { pos:"GK", name:"Alex Meret" },
+    { pos:"GK", name:"Vanja Milinković-Savić" },
+    { pos:"DEF", name:"Amir Rrahmani" },
+    { pos:"DEF", name:"Alessandro Buongiorno" },
+    { pos:"DEF", name:"Giovanni Di Lorenzo" },
+    { pos:"DEF", name:"Mathías Olivera" },
+    { pos:"DEF", name:"Sam Beukema" },
+    { pos:"MIL", name:"Kevin De Bruyne" },
+    { pos:"MIL", name:"Scott McTominay" },
+    { pos:"MIL", name:"Stanislav Lobotka" },
+    { pos:"MIL", name:"Frank Anguissa" },
+    { pos:"ATT", name:"Romelu Lukaku" },
+    { pos:"ATT", name:"David Neres" },
+    { pos:"ATT", name:"Matteo Politano" },
+    { pos:"ATT", name:"Noa Lang" }
+  ],
+  "Inter Milan": [
+    { pos:"GK", name:"Yann Sommer" },
+    { pos:"GK", name:"Josep Martínez" },
+    { pos:"DEF", name:"Alessandro Bastoni" },
+    { pos:"DEF", name:"Francesco Acerbi" },
+    { pos:"DEF", name:"Yann Bisseck" },
+    { pos:"DEF", name:"Denzel Dumfries" },
+    { pos:"DEF", name:"Federico Dimarco" },
+    { pos:"MIL", name:"Hakan Çalhanoğlu" },
+    { pos:"MIL", name:"Nicolò Barella" },
+    { pos:"MIL", name:"Kristjan Asllani" },
+    { pos:"MIL", name:"Piotr Zieliński" },
+    { pos:"ATT", name:"Lautaro Martínez" },
+    { pos:"ATT", name:"Marcus Thuram" },
+    { pos:"ATT", name:"Mehdi Taremi" },
+    { pos:"ATT", name:"Ange-Yoan Bonny" }
+  ],
+  "Juventus": [
+    { pos:"GK", name:"Michele Di Gregorio" },
+    { pos:"GK", name:"Mattia Perin" },
+    { pos:"DEF", name:"Gleison Bremer" },
+    { pos:"DEF", name:"Pierre Kalulu" },
+    { pos:"DEF", name:"Federico Gatti" },
+    { pos:"DEF", name:"Andrea Cambiaso" },
+    { pos:"DEF", name:"Juan Cabal" },
+    { pos:"MIL", name:"Manuel Locatelli" },
+    { pos:"MIL", name:"Khéphren Thuram" },
+    { pos:"MIL", name:"Teun Koopmeiners" },
+    { pos:"MIL", name:"Weston McKennie" },
+    { pos:"ATT", name:"Dušan Vlahović" },
+    { pos:"ATT", name:"Jonathan David" },
+    { pos:"ATT", name:"Kenan Yıldız" },
+    { pos:"ATT", name:"Francisco Conceição" }
+  ],
+  "AC Milan": [
+    { pos:"GK", name:"Mike Maignan" },
+    { pos:"GK", name:"Marco Sportiello" },
+    { pos:"DEF", name:"Fikayo Tomori" },
+    { pos:"DEF", name:"Marco Pellegrino" },
+    { pos:"DEF", name:"Théo Hernández" },
+    { pos:"DEF", name:"Emerson Royal" },
+    { pos:"DEF", name:"Strahinja Pavlović" },
+    { pos:"MIL", name:"Tijjani Reijnders" },
+    { pos:"MIL", name:"Youssouf Fofana" },
+    { pos:"MIL", name:"Ismaël Bennacer" },
+    { pos:"MIL", name:"Christian Pulišić" },
+    { pos:"ATT", name:"Rafael Leão" },
+    { pos:"ATT", name:"Álvaro Morata" },
+    { pos:"ATT", name:"Santiago Giménez" },
+    { pos:"ATT", name:"Samuel Chukwueze" }
+  ],
+  "Atalanta": [
+    { pos:"GK", name:"Marco Carnesecchi" },
+    { pos:"DEF", name:"Isak Hien" },
+    { pos:"DEF", name:"Berat Djimsiti" },
+    { pos:"DEF", name:"Sead Kolašinac" },
+    { pos:"DEF", name:"Raoul Bellanova" },
+    { pos:"DEF", name:"Matteo Ruggeri" },
+    { pos:"MIL", name:"Ederson" },
+    { pos:"MIL", name:"Mario Pašalić" },
+    { pos:"MIL", name:"Éderson" },
+    { pos:"MIL", name:"Charles De Ketelaere" },
+    { pos:"ATT", name:"Mateo Retegui" },
+    { pos:"ATT", name:"Ademola Lookman" },
+    { pos:"ATT", name:"Nikola Krstović" }
+  ],
+  "AS Roma": [
+    { pos:"GK", name:"Mile Svilar" },
+    { pos:"DEF", name:"Gianluca Mancini" },
+    { pos:"DEF", name:"Evan Ndicka" },
+    { pos:"DEF", name:"Mario Hermoso" },
+    { pos:"DEF", name:"Wesley" },
+    { pos:"DEF", name:"Devyne Rensch" },
+    { pos:"MIL", name:"Manu Koné" },
+    { pos:"MIL", name:"Bryan Cristante" },
+    { pos:"MIL", name:"Lorenzo Pellegrini" },
+    { pos:"MIL", name:"Leandro Paredes" },
+    { pos:"ATT", name:"Paulo Dybala" },
+    { pos:"ATT", name:"Artem Dovbyk" },
+    { pos:"ATT", name:"Matías Soulé" }
+  ],
+  "SS Lazio": [
+    { pos:"GK", name:"Ivan Provedel" },
+    { pos:"DEF", name:"Alessio Romagnoli" },
+    { pos:"DEF", name:"Mario Gila" },
+    { pos:"DEF", name:"Adam Marušić" },
+    { pos:"DEF", name:"Nuno Tavares" },
+    { pos:"MIL", name:"Nicolò Rovella" },
+    { pos:"MIL", name:"Matteo Guendouzi" },
+    { pos:"MIL", name:"Danilo Cataldi" },
+    { pos:"MIL", name:"Loum Tchaouna" },
+    { pos:"ATT", name:"Valentín Castellanos" },
+    { pos:"ATT", name:"Boulaye Dia" },
+    { pos:"ATT", name:"Gustav Isaksen" }
+  ],
+  "Fiorentina": [
+    { pos:"GK", name:"David De Gea" },
+    { pos:"DEF", name:"Pietro Comuzzo" },
+    { pos:"DEF", name:"Luca Ranieri" },
+    { pos:"DEF", name:"Dodô" },
+    { pos:"DEF", name:"Robin Gosens" },
+    { pos:"MIL", name:"Rolando Mandragora" },
+    { pos:"MIL", name:"Yacine Adli" },
+    { pos:"MIL", name:"Amir Richardson" },
+    { pos:"ATT", name:"Moise Kean" },
+    { pos:"ATT", name:"Albert Guðmundsson" },
+    { pos:"ATT", name:"Edin Džeko" }
+  ],
+  "Bologna": [
+    { pos:"GK", name:"Łukasz Skorupski" },
+    { pos:"DEF", name:"Charalampos Lykogiannis" },
+    { pos:"DEF", name:"Jhon Lucumí" },
+    { pos:"DEF", name:"Stefan Posch" },
+    { pos:"DEF", name:"Emil Holm" },
+    { pos:"MIL", name:"Remo Freuler" },
+    { pos:"MIL", name:"Lewis Ferguson" },
+    { pos:"MIL", name:"Nikola Moro" },
+    { pos:"ATT", name:"Riccardo Orsolini" },
+    { pos:"ATT", name:"Santiago Castro" },
+    { pos:"ATT", name:"Thijs Dallinga" }
+  ],
+  "Torino": [
+    { pos:"GK", name:"Franco Israel" },
+    { pos:"DEF", name:"Saúl Coco" },
+    { pos:"DEF", name:"Guillermo Maripán" },
+    { pos:"DEF", name:"Adam Masina" },
+    { pos:"DEF", name:"Valentino Lazaro" },
+    { pos:"MIL", name:"Samuele Ricci" },
+    { pos:"MIL", name:"Ivan Ilić" },
+    { pos:"MIL", name:"Nikola Vlašić" },
+    { pos:"ATT", name:"Duván Zapata" },
+    { pos:"ATT", name:"Ché Adams" },
+    { pos:"ATT", name:"Cyril Ngonge" }
+  ],
+  "Genoa": [
+    { pos:"GK", name:"Nicola Leali" },
+    { pos:"DEF", name:"Johan Vásquez" },
+    { pos:"DEF", name:"Aaron Martín" },
+    { pos:"DEF", name:"Koni De Winter" },
+    { pos:"DEF", name:"Sabelo Radu" },
+    { pos:"MIL", name:"Morten Frendrup" },
+    { pos:"MIL", name:"Stefano Sabelli" },
+    { pos:"MIL", name:"Ruslan Malinovskyi" },
+    { pos:"ATT", name:"Vitinha" },
+    { pos:"ATT", name:"Caleb Ekuban" },
+    { pos:"ATT", name:"Andrea Pinamonti" }
+  ],
+  "Como": [
+    { pos:"GK", name:"Pepe Reina" },
+    { pos:"DEF", name:"Alberto Moreno" },
+    { pos:"DEF", name:"Ivan Smolčić" },
+    { pos:"DEF", name:"Marc-Oliver Kempf" },
+    { pos:"DEF", name:"Alex Valle" },
+    { pos:"MIL", name:"Nico Paz" },
+    { pos:"MIL", name:"Máximo Perrone" },
+    { pos:"MIL", name:"Lucas Da Cunha" },
+    { pos:"ATT", name:"Patrick Cutrone" },
+    { pos:"ATT", name:"Assane Diao" },
+    { pos:"ATT", name:"Nicolas Kühn" }
+  ],
+  "Cagliari": [
+    { pos:"GK", name:"Elia Caprile" },
+    { pos:"DEF", name:"Yerry Mina" },
+    { pos:"DEF", name:"Sebastiano Luperto" },
+    { pos:"DEF", name:"Adam Obert" },
+    { pos:"DEF", name:"Gabriele Zappa" },
+    { pos:"MIL", name:"Michael Folorunsho" },
+    { pos:"MIL", name:"Nicolás Viola" },
+    { pos:"MIL", name:"Andrea Deiola" },
+    { pos:"ATT", name:"Roberto Piccoli" },
+    { pos:"ATT", name:"Gianluca Lapadula" },
+    { pos:"ATT", name:"Leonardo Pavoletti" }
+  ],
+  "Udinese": [
+    { pos:"GK", name:"Razvan Sava" },
+    { pos:"DEF", name:"Jaka Bijol" },
+    { pos:"DEF", name:"Christian Kabasele" },
+    { pos:"DEF", name:"Nehuén Pérez" },
+    { pos:"DEF", name:"Kingsley Ehizibue" },
+    { pos:"MIL", name:"Sandi Lovrić" },
+    { pos:"MIL", name:"Oier Zarraga" },
+    { pos:"MIL", name:"Jean-Victor Makengo" },
+    { pos:"ATT", name:"Lorenzo Lucca" },
+    { pos:"ATT", name:"Florian Thauvin" },
+    { pos:"ATT", name:"Keinan Davis" }
+  ],
+  "US Lecce": [
+    { pos:"GK", name:"Wladimiro Falcone" },
+    { pos:"DEF", name:"Federico Baschirotto" },
+    { pos:"DEF", name:"Marin Pongračić" },
+    { pos:"DEF", name:"Antonino Gallo" },
+    { pos:"DEF", name:"Kialonda Gaspar" },
+    { pos:"MIL", name:"Ylber Ramadani" },
+    { pos:"MIL", name:"Hamza Rafia" },
+    { pos:"MIL", name:"Lassana Coulibaly" },
+    { pos:"ATT", name:"Lameck Banda" },
+    { pos:"ATT", name:"Santiago Pierotti" },
+    { pos:"ATT", name:"Patrick Dorgu" }
+  ],
+  "Parma": [
+    { pos:"GK", name:"Zion Suzuki" },
+    { pos:"DEF", name:"Botond Balogh" },
+    { pos:"DEF", name:"Enrico Del Prato" },
+    { pos:"DEF", name:"Emanuele Valeri" },
+    { pos:"DEF", name:"Woyo Coulibaly" },
+    { pos:"MIL", name:"Adrián Bernabé" },
+    { pos:"MIL", name:"Simon Sohm" },
+    { pos:"MIL", name:"Hernani" },
+    { pos:"ATT", name:"Ebrima Darboe" },
+    { pos:"ATT", name:"Mateo Pellegrino" },
+    { pos:"ATT", name:"Dennis Man" }
+  ],
+  "US Sassuolo": [
+    { pos:"GK", name:"Stefano Turati" },
+    { pos:"DEF", name:"Marco Pezzella" },
+    { pos:"DEF", name:"Matteo Vitturini" },
+    { pos:"DEF", name:"Filippo Romagna" },
+    { pos:"DEF", name:"Cristian Volpato" },
+    { pos:"MIL", name:"Kristian Thorstvedt" },
+    { pos:"MIL", name:"Armand Laurienté" },
+    { pos:"MIL", name:"Josh Doig" },
+    { pos:"ATT", name:"Domenico Berardi" },
+    { pos:"ATT", name:"Emil Konradsen Ceïde" },
+    { pos:"ATT", name:"Nicholas Pierini" }
+  ],
+  "Venezia": [
+    { pos:"GK", name:"Jesse Joronen" },
+    { pos:"DEF", name:"Idrissa Touré" },
+    { pos:"DEF", name:"Jay Idzes" },
+    { pos:"DEF", name:"Marin Sverko" },
+    { pos:"DEF", name:"Antonio Candela" },
+    { pos:"MIL", name:"Gaetano Oristanio" },
+    { pos:"MIL", name:"Jay Kevin Duplan" },
+    { pos:"MIL", name:"Marco Busio" },
+    { pos:"ATT", name:"Joel Pohjanpalo" },
+    { pos:"ATT", name:"Christian Gytkjær" },
+    { pos:"ATT", name:"Issa Doumbia" }
+  ],
+  "Frosinone": [
+    { pos:"GK", name:"Cerofolini" },
+    { pos:"DEF", name:"Marco Brescianini" },
+    { pos:"DEF", name:"Emil Bohinen" },
+    { pos:"DEF", name:"Alessio Zerbin" },
+    { pos:"DEF", name:"Simone Romagnoli" },
+    { pos:"MIL", name:"Luca Mazzitelli" },
+    { pos:"MIL", name:"Christian Kouan" },
+    { pos:"MIL", name:"Gabriele Cangiano" },
+    { pos:"ATT", name:"Matteo Cheddira" },
+    { pos:"ATT", name:"Ibrahima Kamara" },
+    { pos:"ATT", name:"Fabio Abiuso" }
+  ],
+  "Monza": [
+    { pos:"GK", name:"Andrea Consigli" },
+    { pos:"DEF", name:"Armando Izzo" },
+    { pos:"DEF", name:"Pablo Marí" },
+    { pos:"DEF", name:"Andrea Carboni" },
+    { pos:"DEF", name:"Kevin Zeroli" },
+    { pos:"MIL", name:"Gianluca Caprari" },
+    { pos:"MIL", name:"Warren Bondo" },
+    { pos:"MIL", name:"Alessandro Bianco" },
+    { pos:"ATT", name:"Daniel Maldini" },
+    { pos:"ATT", name:"Milan Đurić" },
+    { pos:"ATT", name:"Dany Mota" }
+  ],
+
+  // ===================== BUNDESLIGA =====================
+  "FC Bayern Munich": [
+    { pos:"GK", name:"Manuel Neuer" },
+    { pos:"GK", name:"Jonas Urbig" },
+    { pos:"DEF", name:"Dayot Upamecano" },
+    { pos:"DEF", name:"Jonathan Tah" },
+    { pos:"DEF", name:"Josip Stanišić" },
+    { pos:"DEF", name:"Alphonso Davies" },
+    { pos:"DEF", name:"Konrad Laimer" },
+    { pos:"MIL", name:"Joshua Kimmich" },
+    { pos:"MIL", name:"Aleksandar Pavlović" },
+    { pos:"MIL", name:"Jamal Musiala" },
+    { pos:"MIL", name:"Michael Olise" },
+    { pos:"ATT", name:"Harry Kane" },
+    { pos:"ATT", name:"Luis Díaz" },
+    { pos:"ATT", name:"Serge Gnabry" },
+    { pos:"ATT", name:"Bahia Saibari" }
+  ],
+  "Borussia Dortmund": [
+    { pos:"GK", name:"Gregor Kobel" },
+    { pos:"GK", name:"Alexander Meyer" },
+    { pos:"DEF", name:"Nico Schlotterbeck" },
+    { pos:"DEF", name:"Waldemar Anton" },
+    { pos:"DEF", name:"Julian Ryerson" },
+    { pos:"DEF", name:"Ramy Bensebaini" },
+    { pos:"DEF", name:"Yan Couto" },
+    { pos:"MIL", name:"Felix Nmecha" },
+    { pos:"MIL", name:"Pascal Groß" },
+    { pos:"MIL", name:"Marcel Sabitzer" },
+    { pos:"MIL", name:"Jobe Bellingham" },
+    { pos:"ATT", name:"Karim Adeyemi" },
+    { pos:"ATT", name:"Serhou Guirassy" },
+    { pos:"ATT", name:"Julian Brandt" },
+    { pos:"ATT", name:"Maximilian Beier" }
+  ],
+  "RB Leipzig": [
+    { pos:"GK", name:"Péter Gulácsi" },
+    { pos:"GK", name:"Maarten Vandevoordt" },
+    { pos:"DEF", name:"Willi Orbán" },
+    { pos:"DEF", name:"Castello Lukeba" },
+    { pos:"DEF", name:"David Raum" },
+    { pos:"DEF", name:"Ridle Baku" },
+    { pos:"DEF", name:"Arthur Vermeeren" },
+    { pos:"MIL", name:"Xavi Simons" },
+    { pos:"MIL", name:"Kevin Kampl" },
+    { pos:"MIL", name:"Assan Ouédraogo" },
+    { pos:"ATT", name:"Loïs Openda" },
+    { pos:"ATT", name:"Conrad Harder" },
+    { pos:"ATT", name:"Christoph Baumgartner" },
+    { pos:"ATT", name:"Antonio Nusa" }
+  ],
+  "Bayer Leverkusen": [
+    { pos:"GK", name:"Mark Flekken" },
+    { pos:"GK", name:"Lukáš Hrádecký" },
+    { pos:"DEF", name:"Edmond Tapsoba" },
+    { pos:"DEF", name:"Odilon Kossounou" },
+    { pos:"DEF", name:"Lucas Vázquez" },
+    { pos:"DEF", name:"Álex Grimaldo" },
+    { pos:"DEF", name:"Piero Hincapié" },
+    { pos:"MIL", name:"Granit Xhaka" },
+    { pos:"MIL", name:"Exequiel Palacios" },
+    { pos:"MIL", name:"Malik Tillman" },
+    { pos:"MIL", name:"Nathan Tella" },
+    { pos:"ATT", name:"Patrik Schick" },
+    { pos:"ATT", name:"Ernest Poku" },
+    { pos:"ATT", name:"Aleix García" }
+  ],
+  "VfB Stuttgart": [
+    { pos:"GK", name:"Alexander Nübel" },
+    { pos:"DEF", name:"Jeff Chabot" },
+    { pos:"DEF", name:"Ramon Hendriks" },
+    { pos:"DEF", name:"Josha Vagnoman" },
+    { pos:"DEF", name:"Maximilian Mittelstädt" },
+    { pos:"MIL", name:"Angelo Stiller" },
+    { pos:"MIL", name:"Atakan Karazor" },
+    { pos:"MIL", name:"Chris Führich" },
+    { pos:"ATT", name:"Deniz Undav" },
+    { pos:"ATT", name:"Ermedin Demirović" },
+    { pos:"ATT", name:"Jamie Leweling" }
+  ],
+  "Eintracht Frankfurt": [
+    { pos:"GK", name:"Kevin Trapp" },
+    { pos:"DEF", name:"Robin Koch" },
+    { pos:"DEF", name:"Arthur Theate" },
+    { pos:"DEF", name:"Rasmus Kristensen" },
+    { pos:"DEF", name:"Aurèle Amenda" },
+    { pos:"MIL", name:"Hugo Larsson" },
+    { pos:"MIL", name:"Ellyes Skhiri" },
+    { pos:"MIL", name:"Ritsu Dōan" },
+    { pos:"ATT", name:"Jonathan Burkardt" },
+    { pos:"ATT", name:"Can Uzun" },
+    { pos:"ATT", name:"Fares Chaïbi" }
+  ],
+  "TSG Hoffenheim": [
+    { pos:"GK", name:"Oliver Baumann" },
+    { pos:"DEF", name:"Kevin Akpoguma" },
+    { pos:"DEF", name:"David Jankewitz" },
+    { pos:"DEF", name:"Aleksandar Pešić" },
+    { pos:"DEF", name:"Stanley Nsoki" },
+    { pos:"MIL", name:"Finn Ole Becker" },
+    { pos:"MIL", name:"Marius Bülter" },
+    { pos:"MIL", name:"Grischa Prömel" },
+    { pos:"ATT", name:"Andrej Kramarić" },
+    { pos:"ATT", name:"Bambasé Conté" },
+    { pos:"ATT", name:"Fisnik Asllani" }
+  ],
+  "1. FC Union Berlin": [
+    { pos:"GK", name:"Frederik Rønnow" },
+    { pos:"DEF", name:"Danilho Doekhi" },
+    { pos:"DEF", name:"Diogo Leite" },
+    { pos:"DEF", name:"Jerome Roussillon" },
+    { pos:"DEF", name:"Leopold Querfeld" },
+    { pos:"MIL", name:"Rani Khedira" },
+    { pos:"MIL", name:"Andras Nemeth" },
+    { pos:"MIL", name:"Aljoscha Kemlein" },
+    { pos:"ATT", name:"Benedict Hollerbach" },
+    { pos:"ATT", name:"Ilyas Ansah" },
+    { pos:"ATT", name:"Yorbe Vertessen" }
+  ],
+  "SC Freiburg": [
+    { pos:"GK", name:"Noah Atubolu" },
+    { pos:"DEF", name:"Matthias Ginter" },
+    { pos:"DEF", name:"Philipp Lienhart" },
+    { pos:"DEF", name:"Kiliann Sildillia" },
+    { pos:"DEF", name:"Merlin Röhl" },
+    { pos:"MIL", name:"Vincenzo Grifo" },
+    { pos:"MIL", name:"Patrick Osterhage" },
+    { pos:"MIL", name:"Yannik Keitel" },
+    { pos:"ATT", name:"Junior Adamu" },
+    { pos:"ATT", name:"Igor Matanović" },
+    { pos:"ATT", name:"Lucas Höler" }
+  ],
+  "FSV Mainz 05": [
+    { pos:"GK", name:"Robin Zentner" },
+    { pos:"DEF", name:"Andreas Hanche-Olsen" },
+    { pos:"DEF", name:"Stefan Bell" },
+    { pos:"DEF", name:"Silas" },
+    { pos:"DEF", name:"Nikolas Nartey" },
+    { pos:"MIL", name:"Nadiem Amiri" },
+    { pos:"MIL", name:"Dominik Kohr" },
+    { pos:"MIL", name:"Paul Nebel" },
+    { pos:"ATT", name:"Jae-sung Lee" },
+    { pos:"ATT", name:"Nelson Weiper" },
+    { pos:"ATT", name:"Amine Bassi" }
+  ],
+  "Borussia Mönchengladbach": [
+    { pos:"GK", name:"Moritz Nicolas" },
+    { pos:"DEF", name:"Marvin Friedrich" },
+    { pos:"DEF", name:"Ko Itakura" },
+    { pos:"DEF", name:"Nathan Ngoumou" },
+    { pos:"DEF", name:"Luca Netz" },
+    { pos:"MIL", name:"Kevin Stöger" },
+    { pos:"MIL", name:"Rocco Reitz" },
+    { pos:"MIL", name:"Franck Honorat" },
+    { pos:"ATT", name:"Tim Kleindienst" },
+    { pos:"ATT", name:"Haris Tabaković" },
+    { pos:"ATT", name:"Grant-Leon Ranos" }
+  ],
+  "Werder Bremen": [
+    { pos:"GK", name:"Michael Zetterer" },
+    { pos:"DEF", name:"Marco Friedl" },
+    { pos:"DEF", name:"Amos Pieper" },
+    { pos:"DEF", name:"Anthony Jung" },
+    { pos:"DEF", name:"Mitchell Weiser" },
+    { pos:"MIL", name:"Romano Schmid" },
+    { pos:"MIL", name:"Leonardo Bittencourt" },
+    { pos:"MIL", name:"Senne Lynen" },
+    { pos:"ATT", name:"Marvin Ducksch" },
+    { pos:"ATT", name:"Justin Njinmah" },
+    { pos:"ATT", name:"Mio Backhaus" }
+  ],
+  "FC Augsburg": [
+    { pos:"GK", name:"Finn Dahmen" },
+    { pos:"DEF", name:"Patric Pfeiffer" },
+    { pos:"DEF", name:"Keven Schlotterbeck" },
+    { pos:"DEF", name:"Julian Justvan" },
+    { pos:"DEF", name:"Juma Bah" },
+    { pos:"MIL", name:"Fredrik Jensen" },
+    { pos:"MIL", name:"Elvis Rexhbeçaj" },
+    { pos:"MIL", name:"Arne Engels" },
+    { pos:"ATT", name:"Phillip Tietz" },
+    { pos:"ATT", name:"Alexis Claude-Maurice" },
+    { pos:"ATT", name:"Sirlord Conteh" }
+  ],
+  "1. FC Köln": [
+    { pos:"GK", name:"Marvin Schwäbe" },
+    { pos:"DEF", name:"Timo Hübers" },
+    { pos:"DEF", name:"Luca Kilian" },
+    { pos:"DEF", name:"Max Finkgräfe" },
+    { pos:"DEF", name:"Justin Diehl" },
+    { pos:"MIL", name:"Eric Martel" },
+    { pos:"MIL", name:"Denis Huseinbašić" },
+    { pos:"MIL", name:"Said El Mala" },
+    { pos:"ATT", name:"Damion Downs" },
+    { pos:"ATT", name:"Linton Maina" },
+    { pos:"ATT", name:"Sargis Adamyan" }
+  ],
+  "Hamburger SV": [
+    { pos:"GK", name:"Daniel Heuer Fernandes" },
+    { pos:"DEF", name:"Rick van Drongelen" },
+    { pos:"DEF", name:"Miro Muheim" },
+    { pos:"DEF", name:"Nicolás Ramírez" },
+    { pos:"DEF", name:"Ignace Van der Brempt" },
+    { pos:"MIL", name:"Fabio Vieira" },
+    { pos:"MIL", name:"Immanuel Pherai" },
+    { pos:"MIL", name:"Ransford Königsdörffer" },
+    { pos:"ATT", name:"Robert Glatzel" },
+    { pos:"ATT", name:"Terem Moffi" },
+    { pos:"ATT", name:"Lukas Daschner" }
+  ],
+  "FC Schalke 04": [
+    { pos:"GK", name:"Justin Heekeren" },
+    { pos:"DEF", name:"Timo Becker" },
+    { pos:"DEF", name:"Ibrahima Cissé" },
+    { pos:"DEF", name:"Kenneth Schmidt" },
+    { pos:"DEF", name:"Mehmet Aydın" },
+    { pos:"MIL", name:"Tim Skarke" },
+    { pos:"MIL", name:"Aljaž Casar" },
+    { pos:"MIL", name:"Bryan Lasme" },
+    { pos:"ATT", name:"Kenan Karaman" },
+    { pos:"ATT", name:"Moussa Sylla" },
+    { pos:"ATT", name:"Charalampos Kostoulas" }
+  ],
+  "SV Elversberg": [
+    { pos:"GK", name:"Nicolas Kristof" },
+    { pos:"DEF", name:"Lukas Petkov" },
+    { pos:"DEF", name:"Nick Bätzner" },
+    { pos:"DEF", name:"Alexander Löhe" },
+    { pos:"DEF", name:"Kevin Conrad" },
+    { pos:"MIL", name:"Cheick Keita" },
+    { pos:"MIL", name:"Manuel Feil" },
+    { pos:"MIL", name:"Justin Steinkötter" },
+    { pos:"ATT", name:"Julian Kügel" },
+    { pos:"ATT", name:"Marcel Correia" },
+    { pos:"ATT", name:"Luca Schnellbacher" }
+  ],
+  "SC Paderborn": [
+    { pos:"GK", name:"Jannik Huth" },
+    { pos:"DEF", name:"Kai Pröger" },
+    { pos:"DEF", name:"Robert Wagner" },
+    { pos:"DEF", name:"Konstantin Kerschbaumer" },
+    { pos:"DEF", name:"Raphael Obermair" },
+    { pos:"MIL", name:"Filip Bilbija" },
+    { pos:"MIL", name:"Sebastian Klaas" },
+    { pos:"MIL", name:"Loris Baiye" },
+    { pos:"ATT", name:"Ryan Adjei" },
+    { pos:"ATT", name:"Felix Platte" },
+    { pos:"ATT", name:"Adriano Grimaldi" }
   ]
 };
 
@@ -3587,10 +4886,9 @@ function pickCarded(team){ return pickWeightedPlayer(team, CARD_WEIGHT); }
 
 /* ---------- Classement des buteurs (saison en cours, par championnat) ---------- */
 function creditGoal(key, team, name){
-  // Pour l'instant, le classement des buteurs n'est tenu que pour la Ligue 1 (seul championnat
-  // avec un vrai effectif fourni) — facile à étendre plus tard en retirant cette condition.
-  if (key !== 'l1') return;
-  if (!key) return;
+  // Suivi des buteurs pour les 5 championnats domestiques (pas pour les coupes d'Europe /
+  // Coupe de France, dont les effectifs tirés au sort sont plus anecdotiques).
+  if (!DOMESTIC_KEYS.includes(key)) return;
   const st = state[key];
   if (!st || !st.scorers) return;
   const id = team + '||' + name;
@@ -3609,7 +4907,7 @@ function recordScorers(key, home, away, hg, ag){
 // impossible de retrouver le nom exact de chaque buteur passé, mais on régénère une répartition
 // plausible dont les totaux de buts collent exactement aux scores déjà joués.
 function rebuildScorersFromResults(key){
-  if (key !== 'l1') return;
+  if (!DOMESTIC_KEYS.includes(key)) return;
   const st = state[key];
   if (!st || !st.schedule) return;
   st.scorers = {};
@@ -3628,22 +4926,59 @@ function topScorers(key, limit){
   return Object.values(st.scorers).sort((a, b) => b.goals - a.goals).slice(0, limit || 20);
 }
 
+let scorersViewMode = 'season'; // 'season' | 'alltime'
+
+// Cumul des buteurs sur toutes les saisons archivées + la saison en cours, pour un championnat donné.
+// Agrège par NOM + CLUB (comme le classement d'une saison) plutôt que par nom seul : les noms
+// des effectifs fictifs (4 championnats sur 5) viennent d'un petit pool partagé entre tous les
+// clubs, donc deux joueurs de clubs différents peuvent porter le même nom de famille — les
+// fusionner produirait un classement all-time faux. En contrepartie, un transfert réel scinde
+// les statistiques du joueur entre son ancien et son nouveau club plutôt que de les cumuler.
+function computeAllTimeScorers(key, limit){
+  if (!DOMESTIC_KEYS.includes(key)) return [];
+  const totals = {};
+  function addEntry(name, team, goals){
+    const id = team + '||' + name;
+    if (!totals[id]) totals[id] = { name, team, goals: 0 };
+    totals[id].goals += goals;
+  }
+  seasonHistory.forEach(s => {
+    const snap = s.scorersByLeague ? s.scorersByLeague[key] : (key === 'l1' ? s.scorersL1 : null);
+    if (snap) snap.forEach(sc => addEntry(sc.name, sc.team, sc.goals));
+  });
+  const current = state[key] && state[key].scorers;
+  if (current) Object.values(current).forEach(sc => addEntry(sc.name, sc.team, sc.goals));
+  return Object.values(totals).sort((a, b) => b.goals - a.goals).slice(0, limit || 20);
+}
+
 function renderScorers(){
   const key = activeLeague;
   const league = LEAGUES[key];
   const body = document.getElementById('scorers-body');
   const emptyEl = document.getElementById('scorers-empty');
-  document.getElementById('scorers-title').textContent = `Meilleurs buteurs — ${league.name}`;
-  if (key !== 'l1'){
+  const modeSeasonBtn = document.getElementById('scorers-mode-season');
+  const modeAlltimeBtn = document.getElementById('scorers-mode-alltime');
+  const isDomestic = DOMESTIC_KEYS.includes(key);
+
+  document.getElementById('scorers-title').textContent = `Meilleurs buteurs — ${league.name}${scorersViewMode === 'alltime' ? ' (all-time)' : ''}`;
+  modeSeasonBtn.style.display = isDomestic ? '' : 'none';
+  modeAlltimeBtn.style.display = isDomestic ? '' : 'none';
+  modeSeasonBtn.classList.toggle('on', scorersViewMode === 'season');
+  modeAlltimeBtn.classList.toggle('on', scorersViewMode === 'alltime');
+
+  if (!isDomestic){
     body.innerHTML = '';
-    emptyEl.textContent = 'Classement des buteurs disponible uniquement pour la Ligue 1 pour l’instant.';
+    emptyEl.textContent = 'Classement des buteurs disponible uniquement pour les 5 championnats domestiques.';
     emptyEl.style.display = '';
     return;
   }
-  const list = topScorers(key, 15);
+
+  const list = scorersViewMode === 'alltime' ? computeAllTimeScorers(key, 20) : topScorers(key, 15);
   if (list.length === 0){
     body.innerHTML = '';
-    emptyEl.textContent = 'Aucun but inscrit pour l’instant dans ce championnat.';
+    emptyEl.textContent = scorersViewMode === 'alltime'
+      ? 'Aucun but inscrit pour l’instant dans ce championnat (toutes saisons confondues).'
+      : 'Aucun but inscrit pour l’instant dans ce championnat.';
     emptyEl.style.display = '';
     return;
   }
@@ -3657,6 +4992,60 @@ function renderScorers(){
     </tr>
   `).join('');
 }
+
+/* ---------- Effectifs : parcourir la composition (âges, statut vedette) d'un club ---------- */
+const POSITION_LABELS = { GK: 'Gardiens', DEF: 'Défenseurs', MIL: 'Milieux', ATT: 'Attaquants' };
+const POSITION_ORDER = ['GK', 'DEF', 'MIL', 'ATT'];
+
+function renderEffectifsPanel(){
+  const league = LEAGUES[activeLeague];
+  const emptyEl = document.getElementById('effectifs-empty');
+  const controls = document.getElementById('effectifs-controls');
+  const select = document.getElementById('effectifs-club-select');
+
+  if (!league.teams || league.teams.length === 0){
+    emptyEl.style.display = '';
+    controls.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  controls.style.display = '';
+
+  const prevValue = select.value;
+  const sortedTeams = league.teams.slice().sort((a, b) => a.localeCompare(b));
+  select.innerHTML = sortedTeams.map(t => `<option value="${t}">${isFavorite(t) ? '⚽ ' : ''}${t}</option>`).join('');
+  select.value = sortedTeams.includes(prevValue) ? prevValue : sortedTeams[0];
+
+  renderEffectifsContent();
+}
+
+function renderEffectifsContent(){
+  const select = document.getElementById('effectifs-club-select');
+  const content = document.getElementById('effectifs-content');
+  const team = select.value;
+  if (!team){ content.innerHTML = ''; return; }
+
+  const squad = getSquad(team).slice().sort((a, b) => a.age - b.age);
+  const byPos = {};
+  POSITION_ORDER.forEach(p => byPos[p] = []);
+  squad.forEach(p => { (byPos[p.pos] || (byPos[p.pos] = [])).push(p); });
+
+  content.innerHTML = POSITION_ORDER
+    .filter(pos => byPos[pos] && byPos[pos].length)
+    .map(pos => `
+      <div class="squad-group">
+        <h4>${POSITION_LABELS[pos] || pos} (${byPos[pos].length})</h4>
+        ${byPos[pos].map(p => `
+          <div class="squad-player">
+            <span class="sp-name">${p.star ? '<span class="sp-star" title="Titulaire indiscutable">⭐</span>' : ''}${p.name}</span>
+            <span class="sp-age">${p.age} ans</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+}
+
+document.getElementById('effectifs-club-select').addEventListener('change', renderEffectifsContent);
 
 let liveState = null;
 
@@ -4090,6 +5479,7 @@ function render(){
   }
   renderH2H();
   renderScorers();
+  renderEffectifsPanel();
   renderPalmares();
   renderSeasonHistory();
   renderArchivePanel();
