@@ -762,6 +762,15 @@
   .journal-sheet .jm{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#6d6753; }
   .journal-sheet .jr-fr{ font-weight:700; border-bottom:2px solid #2f6fd6; }
   .journal-sheet .jf{ display:inline-block; width:15px; height:15px; line-height:15px; margin-right:2px; text-align:center; border-radius:2px; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700; color:#fff; }
+  .journal-article{ margin:0 0 20px; }
+  .journal-article .jtable{ break-inside:avoid; margin-top:6px; }
+  .ja-kicker{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:#b3261e; font-weight:700; margin-bottom:2px; }
+  .ja-title{ font-family:'Bebas Neue',sans-serif; font-size:27px; line-height:1.03; letter-spacing:.01em; margin:0 0 6px; }
+  .ja-chapo{ font-weight:700; font-size:14px; line-height:1.4; margin:0 0 8px; }
+  .ja-p{ font-size:13.5px; line-height:1.5; margin:0 0 8px; text-align:justify; hyphens:auto; }
+  .ja-une{ column-count:2; column-gap:26px; margin-bottom:14px; }
+  @media (max-width:760px){ .ja-une{ column-count:1; } }
+  .jcap{ font-size:10px; color:#6d6753; margin:4px 0 0; font-family:'JetBrains Mono',monospace; }
   .journal-sheet .jtable{ width:100%; border-collapse:collapse; font-size:11.5px; font-family:'Inter',sans-serif; }
   .journal-sheet .jtable th{ text-align:center; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:500; color:#6d6753; padding:2px 3px; border-bottom:1px solid #1b1a17; }
   .journal-sheet .jtable td{ text-align:center; padding:2px 3px; border-bottom:1px dotted #cfc8b0; font-variant-numeric:tabular-nums; }
@@ -1420,7 +1429,11 @@ function buildCupBracketState(teams){
 }
 function performCoupeDeFranceDraw(){
   const l1Clubs = LEAGUES.l1.teams.slice();
-  const l2Clubs = shuffle(LIGUE2_POOL).slice(0, 14);
+  // Vivier de Ligue 2 à jour : anciens clubs de L2 + clubs relégués de L1 (RESERVE_POOLS.l1),
+  // en excluant tout club qui évolue en L1 cette saison (promus) — sinon un même club pouvait
+  // se retrouver deux fois dans le tableau.
+  const l2Pool = Array.from(new Set(LIGUE2_POOL.concat(RESERVE_POOLS.l1))).filter(t => !l1Clubs.includes(t));
+  const l2Clubs = shuffle(l2Pool).slice(0, 14);
   const league = LEAGUES.coupefrance;
   league.teams = shuffle(l1Clubs.concat(l2Clubs));
   league.qualifiedCount = l1Clubs.length;
@@ -5576,16 +5589,41 @@ function tableUpTo(key, upToMd){
   return rows;
 }
 
-/* ----- Briques d'affichage : tableaux de classement compacts ----- */
+/* ----- Outils de rédaction (style presse sportive) ----- */
+const J_NUM = ['aucune', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit'];
+function jNum(n){ return n < J_NUM.length ? J_NUM[n] : String(n); }
+function jList(arr){ return arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(', ') + ' et ' + arr[arr.length - 1]; }
+// "de" + nom de club avec élision : d'Angers, du Mans, des ..., de Lille
+function jDe(name){
+  if (/^Le /.test(name)) return 'du ' + name.slice(3);
+  if (/^Les /.test(name)) return 'des ' + name.slice(4);
+  return /^[AEIOUÉÈÊÀÂÎÔÛ]/i.test(name) ? "d'" + name : 'de ' + name;
+}
+function jOrd(n){ return n === 1 ? '1er' : n + 'e'; }
+function jPts(n){ return `${n} ${jPlural(n, 'point', 'points')}`; }
+function jFmt(n, d){ return Number(n).toFixed(d === undefined ? 2 : d).replace('.', ','); }
+// Verbe (3e personne du singulier) décrivant la dynamique récente d'un club d'après ses 5 derniers résultats
+function jFormPhrase(form){
+  const n = form.length, w = form.filter(x => x === 'W').length, d = form.filter(x => x === 'D').length, l = form.filter(x => x === 'L').length;
+  if (n >= 3 && w === n) return `enchaîne ${jNum(n)} victoires de rang`;
+  if (n >= 3 && l === n) return `sombre : ${jNum(n)} défaites de rang`;
+  if (n >= 4 && l === 0) return `reste invaincu depuis ${jNum(n)} matches`;
+  if (n >= 4 && w === 0) return `n'a plus gagné depuis ${jNum(n)} matches`;
+  if (w >= 3) return `reste sur ${jNum(w)} victoires lors de ses ${jNum(n)} derniers matches`;
+  if (l >= 3) return `traverse une passe délicate (${jNum(l)} défaites sur ses ${jNum(n)} derniers matches)`;
+  return `alterne le bon et le moins bon (${w}V-${d}N-${l}D sur ses ${n} derniers matches)`;
+}
+function jArticle(kicker, title, chapo, paras, extraHtml){
+  return `<div class="journal-article"><div class="ja-kicker">${kicker}</div><h3 class="ja-title">${title}</h3>${chapo ? `<p class="ja-chapo">${chapo}</p>` : ''}${paras.filter(Boolean).map(p => `<p class="ja-p">${p}</p>`).join('')}${extraHtml || ''}</div>`;
+}
+
+/* ----- Tableaux : uniquement les places qui comptent ----- */
 function jZoneDomestic(league, total, pos){
   const relegCount = league.europe.releg + (league.europe.releg2 || 0);
   if (pos > total - relegCount) return 'releg';
   return zoneClass(pos, league.europe);
 }
 function jZoneEuro(pos){ return pos <= 8 ? 'ucl' : (pos <= 24 ? 'uel' : 'releg'); }
-function jFmt(n, d){ return Number(n).toFixed(d === undefined ? 2 : d).replace('.', ','); }
-
-// Tableau de classement complet : position, évolution depuis le début de la période, J, Pts, Diff, forme.
 function jTableHtml(rows, before, zoneFn, euro){
   const beforePos = {};
   if (before) before.forEach((r, i) => beforePos[r.team] = i + 1);
@@ -5601,14 +5639,15 @@ function jTableHtml(rows, before, zoneFn, euro){
   return `<table class="jtable"><thead><tr><th>#</th><th></th><th>Équipe</th><th>J</th><th>Pts</th><th>Diff</th><th>Forme</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
-/* ----- Championnats : classements + données d'une plage de journées ----- */
+/* ----- Championnats : un article par ligue ----- */
 function journalDomestic(mdFirst, mdLast, items){
-  let html = '';
+  const articles = [];
   const hot = [], cold = [], unbeaten = [];
   const leagueStats = [], attacks = [], defences = [];
-  const rangeLabel = mdFirst === mdLast ? `J${mdFirst + 1}` : `J${mdFirst + 1} à J${mdLast + 1}`;
-  let totalGoals = 0, totalMatches = 0;
+  const afterByKey = {};
   const allMatches = [];
+  const rangeShort = mdFirst === mdLast ? `J${mdFirst + 1}` : `J${mdFirst + 1} à J${mdLast + 1}`;
+  let totalGoals = 0, totalMatches = 0;
 
   DOMESTIC_KEYS.forEach(key => {
     const league = LEAGUES[key], st = state[key];
@@ -5616,9 +5655,9 @@ function journalDomestic(mdFirst, mdLast, items){
     if (last < mdFirst) return;
     const before = mdFirst > 0 ? tableUpTo(key, mdFirst - 1) : null;
     const after = tableUpTo(key, last);
+    afterByKey[key] = after;
     const total = after.length;
 
-    // Données de la période
     const ms = [], gf = {}, ga = {};
     let homeW = 0, draws = 0, awayW = 0;
     for (let md = mdFirst; md <= last; md++){
@@ -5636,101 +5675,166 @@ function journalDomestic(mdFirst, mdLast, items){
     totalGoals += goals; totalMatches += ms.length; ms.forEach(m => allMatches.push(m));
     leagueStats.push({ name: league.name, goals, matches: ms.length, homeW, draws, awayW });
 
-    // Leader
-    const leader = after[0], second = after[1];
-    const seasonOver = last === st.schedule.length - 1 && st.results.every(md => md.every(r => r));
-    let leaderTxt;
-    if (seasonOver){
-      leaderTxt = `<b>${leader.team}</b> est sacré champion avec ${leader.pts} points, ${leader.pts - second.pts} d'avance sur ${second.team}.`;
-      items.push({ score: 100, title: `${leader.team.toUpperCase()} CHAMPION !`, text: `${leader.team} remporte le titre en ${league.name} (${leader.pts} pts, ${leader.w}V-${leader.d}N-${leader.l}D).` });
-    } else if (before && before[0].team !== leader.team){
-      leaderTxt = `<b>${leader.team}</b> prend la tête (${leader.pts} pts) et détrône ${before[0].team}.`;
-      items.push({ score: 70, title: jPick([`${leader.team.toUpperCase()} PREND LE POUVOIR`, `CHANGEMENT DE LEADER EN ${league.name.toUpperCase()}`], leader.team + key), text: `${leader.team} prend la tête de ${league.name} devant ${before[0].team}.` });
-    } else {
-      const gap = leader.pts - second.pts;
-      leaderTxt = gap === 0
-        ? `<b>${leader.team}</b> reste en tête (${leader.pts} pts) mais ${second.team} est revenu à égalité de points.`
-        : `<b>${leader.team}</b> reste en tête avec ${leader.pts} pts, ${gap} ${jPlural(gap, 'point', 'points')} devant ${second.team}.`;
-    }
-
-    // Mouvements au classement
-    let moveLi = '';
-    if (before){
-      const beforePos = {}; before.forEach((r, i) => beforePos[r.team] = i + 1);
-      let riser = null, faller = null;
-      after.forEach((r, i) => {
-        const delta = beforePos[r.team] - (i + 1);
-        if (!riser || delta > riser.delta) riser = { team: r.team, delta, from: beforePos[r.team], to: i + 1 };
-        if (!faller || delta < faller.delta) faller = { team: r.team, delta, from: beforePos[r.team], to: i + 1 };
-      });
-      if (riser && riser.delta >= 3){
-        moveLi += `<li><span class="jup">▲</span> <b>${riser.team}</b> : ${riser.from}e → ${riser.to}e</li>`;
-        if (riser.delta >= 5) items.push({ score: 40, title: `${riser.team.toUpperCase()} S'ENVOLE`, text: `${riser.team} grimpe de ${riser.delta} places en ${league.name} (${riser.from}e → ${riser.to}e).` });
-      }
-      if (faller && faller.delta <= -3){
-        moveLi += `<li><span class="jdown">▼</span> <b>${faller.team}</b> : ${faller.from}e → ${faller.to}e</li>`;
-        if (faller.delta <= -5) items.push({ score: 38, title: `${faller.team.toUpperCase()} DÉGRINGOLE`, text: `${faller.team} recule de ${-faller.delta} places en ${league.name} (${faller.from}e → ${faller.to}e).` });
-      }
-    }
-
-    const bestAtt = Object.keys(gf).sort((a, b) => gf[b] - gf[a])[0];
-    const bestDef = Object.keys(ga).sort((a, b) => ga[a] - ga[b])[0];
-    const pct = n => Math.round(100 * n / ms.length);
-
-    html += `<div class="journal-section">
-      <h3 class="journal-h3">${league.name} <span class="jm">· ${rangeLabel}</span></h3>
-      <p class="journal-p">${leaderTxt}</p>
-      ${jTableHtml(after, before, pos => jZoneDomestic(league, total, pos), false)}
-      <ul class="journal-list" style="margin-top:6px;">
-        <li><b>Sur la période</b> : ${goals} buts (${jFmt(goals / ms.length)}/match) · dom. ${pct(homeW)} % · nuls ${pct(draws)} % · ext. ${pct(awayW)} %</li>
-        <li><b>Meilleure attaque</b> : ${bestAtt} (${gf[bestAtt]}) · <b>Meilleure défense</b> : ${bestDef} (${ga[bestDef]} encaissés)</li>
-        ${moveLi}
-      </ul></div>`;
-
-    // Données saison cumulées (attaques / défenses) et forme
+    // Dynamiques (forme sur 5 matches)
+    const leagueHot = [], leagueCold = [];
     after.forEach((r, i) => {
       if (r.p >= 3){
-        attacks.push({ team: r.team, leagueName: league.name, per: r.gf / r.p, gf: r.gf, p: r.p });
-        defences.push({ team: r.team, leagueName: league.name, per: r.ga / r.p, ga: r.ga, p: r.p });
+        attacks.push({ team: r.team, leagueName: league.name, per: r.gf / r.p });
+        defences.push({ team: r.team, leagueName: league.name, per: r.ga / r.p });
       }
       if (r.form.length < 4) return;
       const wins = r.form.filter(x => x === 'W').length, losses = r.form.filter(x => x === 'L').length;
-      const entry = { team: r.team, leagueName: league.name, pos: i + 1, pts: r.pts, form: r.form, wins, losses };
-      if (wins >= 4) hot.push(entry);
-      else if (wins === 0 && losses >= 3) cold.push(entry);
-      else if (r.form.length >= 5 && losses === 0) unbeaten.push(entry);
+      const e = { team: r.team, leagueName: league.name, pos: i + 1, pts: r.pts, form: r.form, wins, losses };
+      if (wins >= 4){ hot.push(e); leagueHot.push(e); }
+      else if (wins === 0 && losses >= 3){ cold.push(e); leagueCold.push(e); }
+      else if (r.form.length >= 5 && losses === 0) unbeaten.push(e);
     });
+    leagueHot.sort((a, b) => b.wins - a.wins || b.pts - a.pts);
+    leagueCold.sort((a, b) => b.losses - a.losses || a.pts - b.pts);
+
+    // ---------- Données de rédaction ----------
+    const seed = key + mdFirst + last;
+    const relegCount = league.europe.releg + (league.europe.releg2 || 0);
+    const nUcl = league.europe.ucl, euroN = nUcl + league.europe.uel;
+    const leader = after[0], second = after[1], third = after[2];
+    const T = leader.team, S = second.team;
+    const gap = leader.pts - second.pts;
+    const beforeMap = {}; if (before) before.forEach((r, i) => beforeMap[r.team] = { pos: i + 1, pts: r.pts });
+    const possible = (last - mdFirst + 1) * 3;
+    const taken = leader.pts - (beforeMap[T] ? beforeMap[T].pts : 0);
+    const seasonOver = last === st.schedule.length - 1 && st.results.every(md => md.every(r => r));
+    const leaderChanged = !!before && before[0].team !== T;
+    const thirdTxt = third ? `${third.team} (${third.pts} pts) complète le podium.` : '';
+
+    // Titre
+    let title;
+    if (seasonOver) title = jPick([`${T}, champion !`, `Le titre pour ${T}`, `${T} sacré en ${league.name}`], seed);
+    else if (leaderChanged) title = jPick([`${T} prend le pouvoir`, `${T} s'offre la première place`, `Changement de leader : ${T} passe devant`], seed);
+    else if (gap <= 2) title = jPick([`${T} - ${S} : duel au sommet`, `${T} et ${S} au coude-à-coude`, `Au sommet, rien n'est joué`], seed);
+    else if (gap >= 9) title = jPick([`${T} fait le trou`, `${T} file vers le titre`, `Le vide derrière ${T}`], seed);
+    else title = jPick([`${T} garde la main`, `${T} tient son rang`, `${T} résiste aux poursuivants`], seed);
+
+    // Chapô
+    const gapTxt = gap === 0 ? `ne devance ${S} qu'à la différence de buts` : `devance ${S} de ${jPts(gap)}`;
+    const chapo = seasonOver
+      ? `Avec ${leader.pts} points, ${T} termine devant ${S} (${second.pts}) et remporte le titre en ${league.name}.`
+      : `${T} (${leader.pts} pts) ${gapTxt}. ${leaderChanged ? `${before[0].team} doit céder le fauteuil de leader.` : `${taken} points pris sur ${possible} possibles sur la période (${rangeShort}).`}`;
+
+    // Paragraphe 1 : le sommet
+    const p1 = seasonOver
+      ? `C'est officiel : ${T} est champion. Bilan de sa saison : ${leader.w}V-${leader.d}N-${leader.l}D, ${leader.gf} buts marqués, ${leader.ga} encaissés (${leader.gd > 0 ? '+' : ''}${leader.gd}). ${S} termine deuxième, à ${jPts(gap)}. ${thirdTxt}`
+      : jPick([
+          `${T} occupe la première place et ${jFormPhrase(leader.form)}. Sur la période (${rangeShort}), le leader a récolté ${taken} points sur ${possible} possibles et ${gap === 0 ? `partage désormais le même total que ${S}` : `compte ${jPts(gap)} d'avance sur ${S}`}. ${thirdTxt}`,
+          `En tête de ${league.name}, ${T} ${jFormPhrase(leader.form)}. ${S}, son dauphin, ${jFormPhrase(second.form)}, ${gap === 0 ? 'et l\'écart est nul' : `à ${jPts(gap)} du leader`}. ${thirdTxt}`
+        ], seed + 'p1');
+
+    // Paragraphe 2 : la course à l'Europe
+    const uclNames = after.slice(0, nUcl).map(r => r.team);
+    const uelNames = after.slice(nUcl, euroN).map(r => r.team);
+    const beforeEuro = before ? new Set(before.slice(0, euroN).map(r => r.team)) : null;
+    const afterEuro = new Set(after.slice(0, euroN).map(r => r.team));
+    const entered = beforeEuro ? after.slice(0, euroN).map(r => r.team).filter(t => !beforeEuro.has(t)) : [];
+    const left = beforeEuro ? before.slice(0, euroN).map(r => r.team).filter(t => !afterEuro.has(t)) : [];
+    const fourth = after[nUcl - 1], fifth = after[nUcl], seventh = after[euroN - 1], firstOut = after[euroN];
+    const gapUcl = fourth.pts - fifth.pts;
+    let p2;
+    if (seasonOver){
+      p2 = `Verdict européen : ${jList(uclNames)} joueront la Ligue des Champions, ${jList(uelNames)} l'Europa League. ${firstOut ? `${firstOut.team} (${euroN + 1}e) rate le coche de ${jPts(seventh.pts - firstOut.pts)}.` : ''}`;
+    } else {
+      p2 = `Dans la course à l'Europe, ${jList(uclNames)} tiennent les places pour la Ligue des Champions ; ${jList(uelNames)} joueraient l'Europa League. `;
+      p2 += gapUcl <= 3
+        ? `${jPts(gapUcl)} seulement séparent le 4e, ${fourth.team}, du 5e, ${fifth.team} : la dernière place en Ligue des Champions est loin d'être acquise. `
+        : `${fourth.team} (4e) possède ${jPts(gapUcl)} d'avance sur ${fifth.team} et voit venir. `;
+      if (entered.length) p2 += `${jList(entered)} ${jPlural(entered.length, 'fait', 'font')} son entrée dans les places européennes${left.length ? `, aux dépens ${left.length === 1 ? jDe(left[0]) : 'de ' + jList(left)}` : ''}. `;
+      else if (left.length) p2 += `${jList(left)} ${jPlural(left.length, 'quitte', 'quittent')} les places européennes. `;
+      if (firstOut) p2 += `Premier hors course : ${firstOut.team}, à ${jPts(seventh.pts - firstOut.pts)} du 7e.`;
+    }
+
+    // Paragraphe 3 : le bas de tableau
+    const last1 = after[total - 1], safe = after[total - relegCount - 1];
+    const redNow = new Set(after.slice(total - relegCount).map(r => r.team));
+    const redBefore = before ? new Set(before.slice(total - relegCount).map(r => r.team)) : null;
+    const fell = redBefore ? [...redNow].filter(t => !redBefore.has(t)) : [];
+    const escaped = redBefore ? [...redBefore].filter(t => !redNow.has(t)) : [];
+    const dSafe = safe.pts - last1.pts;
+    const p3 = seasonOver
+      ? `Dans la charrette : ${jList(after.slice(total - relegCount).map(r => r.team))} ${jPlural(relegCount, 'descend', 'descendent')} à l'étage inférieur. ${safe.team} sauve sa place avec ${safe.pts} points.`
+      : `En bas de tableau, ${last1.team} ferme la marche avec ${last1.pts} points, ${dSafe === 0 ? `à égalité de points avec ${safe.team}` : `à ${jPts(dSafe)} ${jDe(safe.team)}`}, premier non-relégable. ${fell.length ? `${jList(fell)} ${jPlural(fell.length, 'tombe', 'tombent')} en zone rouge. ` : ''}${escaped.length ? `${jList(escaped)} ${jPlural(escaped.length, 's\'extirpe', 's\'extirpent')} de la zone rouge.` : ''}`;
+
+    // Paragraphe 4 : dynamiques + chiffres
+    const bestHot = leagueHot[0], worstCold = leagueCold[0];
+    const p4 = `${bestHot ? `La meilleure dynamique du moment ? ${bestHot.team} (${jOrd(bestHot.pos)}), qui ${jFormPhrase(bestHot.form)}. ` : ''}${worstCold ? `À l'inverse, ${worstCold.team} (${jOrd(worstCold.pos)}) ${jFormPhrase(worstCold.form)}. ` : ''}Sur la période, ${goals} buts ont été inscrits (${jFmt(goals / ms.length)} par match).`;
+
+    const table = jTableHtml(after.slice(0, euroN), before, pos => jZoneDomestic(league, total, pos), false)
+      + `<p class="jcap">Places européennes : 1-${nUcl} Ligue des Champions · ${nUcl + 1}-${euroN} Europa League</p>`;
+    articles.push(jArticle(`${league.name} · ${rangeShort}`, title, chapo, [p1, p2, p3, p4], table));
+
+    // Titres de une éventuels (avec corps d'article)
+    if (seasonOver){
+      items.push({ score: 100, title: `${T.toUpperCase()} CHAMPION !`, text: `${T} remporte le titre en ${league.name} (${leader.pts} pts, ${leader.w}V-${leader.d}N-${leader.l}D).`, body: [p1, p2, p3] });
+    } else if (leaderChanged){
+      items.push({ score: 70, title: jPick([`${T.toUpperCase()} PREND LE POUVOIR`, `CHANGEMENT DE LEADER EN ${league.name.toUpperCase()}`], T + key),
+        text: `${T} prend la tête de ${league.name} devant ${before[0].team}.`,
+        body: [`${T} a profité de cette période (${rangeShort}) pour s'installer aux commandes de ${league.name} avec ${leader.pts} points. ${before[0].team}, qui occupait le trône, doit s'incliner et se retrouve ${jOrd(after.findIndex(r => r.team === before[0].team) + 1)}.`,
+               `Le nouveau leader ${jFormPhrase(leader.form)}. ${S} ${jFormPhrase(second.form)}. ${gap === 0 ? 'Les deux clubs sont à égalité de points.' : `L'écart au sommet est de ${jPts(gap)}.`}`] });
+    }
+    const riserFall = (() => {
+      if (!before) return null;
+      let riser = null, faller = null;
+      after.forEach((r, i) => {
+        const delta = beforeMap[r.team].pos - (i + 1);
+        if (!riser || delta > riser.delta) riser = { team: r.team, delta, from: beforeMap[r.team].pos, to: i + 1 };
+        if (!faller || delta < faller.delta) faller = { team: r.team, delta, from: beforeMap[r.team].pos, to: i + 1 };
+      });
+      return { riser, faller };
+    })();
+    if (riserFall){
+      if (riserFall.riser.delta >= 5) items.push({ score: 40, title: `${riserFall.riser.team.toUpperCase()} S'ENVOLE`, text: `${riserFall.riser.team} grimpe de ${riserFall.riser.delta} places en ${league.name} (${riserFall.riser.from}e → ${riserFall.riser.to}e).` });
+      if (riserFall.faller.delta <= -5) items.push({ score: 38, title: `${riserFall.faller.team.toUpperCase()} DÉGRINGOLE`, text: `${riserFall.faller.team} recule de ${-riserFall.faller.delta} places en ${league.name} (${riserFall.faller.from}e → ${riserFall.faller.to}e).` });
+    }
   });
 
-  // Faits marquants (titres de une / à lire aussi)
+  // ----- Faits marquants avec corps d'article -----
+  const ctx = (key, team) => { const a = afterByKey[key]; const i = a.findIndex(r => r.team === team); return { pos: i + 1, pts: a[i].pts, form: a[i].form, total: a.length }; };
   allMatches.slice().sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag))
     .filter(m => Math.abs(m.hg - m.ag) >= 4).slice(0, 2).forEach(m => {
-      const w = jWinnerFirst(m);
+      const w = jWinnerFirst(m), wc = ctx(m.key, w.winner), lc = ctx(m.key, w.loser), ln = LEAGUES[m.key].name;
       items.push({ score: 50 + Math.abs(m.hg - m.ag) * 3,
         title: jPick([`${w.winner.toUpperCase()} FAIT UN CARTON`, `${w.winner.toUpperCase()} ASSOMME ${w.loser.toUpperCase()}`, `LE ROULEAU COMPRESSEUR ${w.winner.toUpperCase()}`], w.winner + w.loser),
-        text: `${w.winner} corrige ${w.loser} ${w.wg}-${w.lg} en ${LEAGUES[m.key].name} (J${m.md + 1}).` });
+        text: `${w.winner} corrige ${w.loser} ${w.wg}-${w.lg} en ${ln} (J${m.md + 1}).`,
+        body: [jPick([
+            `${w.winner}, désormais ${jOrd(wc.pos)} de ${ln} avec ${wc.pts} points, a livré une démonstration face à ${w.loser} (${jOrd(lc.pos)}). ${w.wg}-${w.lg} : un score sans appel, qui a fait du bruit dans tout le championnat.`,
+            `Il y a des journées où tout réussit. Pour ${w.winner}, ce fut le cas contre ${w.loser} : ${w.wg} buts à ${w.lg}, une addition salée qui pèse sur le classement de ${ln}.`,
+            `${w.loser} s'en souviendra. Malmené de bout en bout, le ${jOrd(lc.pos)} de ${ln} a plié face à un ${w.winner} des grands jours (${w.wg}-${w.lg}).`
+          ], w.winner + w.loser + 'b'),
+          `De son côté, ${w.winner} ${jFormPhrase(wc.form)}. ${w.loser}, lui, ${jFormPhrase(lc.form)}.`] });
     });
   allMatches.map(m => { const w = jWinnerFirst(m); return { m, w, diff: (STRENGTHS[w.loser] ?? 55) - (STRENGTHS[w.winner] ?? 55), draw: m.hg === m.ag }; })
     .filter(x => !x.draw && x.diff >= 12).sort((a, b) => b.diff - a.diff).slice(0, 2).forEach(x => {
+      const wc = ctx(x.m.key, x.w.winner), lc = ctx(x.m.key, x.w.loser), ln = LEAGUES[x.m.key].name;
+      const enjeu = wc.pos <= 7 ? 'la course aux places européennes' : (wc.pos > wc.total - 5 ? 'la lutte pour le maintien' : 'le ventre mou du classement');
       items.push({ score: 45 + Math.min(x.diff, 30) / 2,
         title: jPick([`${x.w.winner.toUpperCase()} RENVERSE ${x.w.loser.toUpperCase()}`, `COUP DE THÉÂTRE : ${x.w.winner.toUpperCase()} S'IMPOSE`, `${x.w.winner.toUpperCase()} FAIT TREMBLER ${x.w.loser.toUpperCase()}`], x.w.winner + x.w.loser),
-        text: `Surprise en ${LEAGUES[x.m.key].name} : ${x.w.winner} s'impose ${x.w.wg}-${x.w.lg} face à ${x.w.loser}, pourtant nettement favori.` });
+        text: `Surprise en ${ln} : ${x.w.winner} s'impose ${x.w.wg}-${x.w.lg} face à ${x.w.loser}, pourtant nettement favori.`,
+        body: [`Sur le papier, ${x.w.loser} (${jOrd(lc.pos)}) partait avec les faveurs du pronostic. Sur la pelouse, c'est ${x.w.winner} (${jOrd(wc.pos)}) qui a eu le dernier mot, ${x.w.wg}-${x.w.lg}.`,
+               `Une performance qui compte double dans ${enjeu}. ${x.w.winner} ${jFormPhrase(wc.form)} ; ${x.w.loser} ${jFormPhrase(lc.form)}.`] });
     });
 
   hot.sort((a, b) => b.wins - a.wins || b.pts - a.pts);
   cold.sort((a, b) => b.losses - a.losses || a.pts - b.pts);
   unbeaten.sort((a, b) => b.pts - a.pts);
   if (hot[0] && hot[0].wins === hot[0].form.length && hot[0].form.length >= 5){
-    items.push({ score: 42, title: `${hot[0].team.toUpperCase()} NE S'ARRÊTE PLUS`, text: `${hot[0].team} enchaîne cinq victoires consécutives en ${hot[0].leagueName}.` });
+    items.push({ score: 42, title: `${hot[0].team.toUpperCase()} NE S'ARRÊTE PLUS`, text: `${hot[0].team} enchaîne cinq victoires consécutives en ${hot[0].leagueName}.`,
+      body: [`${hot[0].team} (${jOrd(hot[0].pos)} de ${hot[0].leagueName}, ${hot[0].pts} points) est la locomotive du moment : cinq victoires d'affilée, et une confiance qui se lit sur toute la ligne.`] });
   }
 
   const chiffre = totalMatches ? `${totalGoals} buts en ${totalMatches} matches (${jFmt(totalGoals / totalMatches)} par match)` : '';
 
-  // Section "Les chiffres" : comparatif des championnats + meilleures attaques / défenses de la saison
+  // ----- Les chiffres -----
   attacks.sort((a, b) => b.per - a.per); defences.sort((a, b) => a.per - b.per);
   const pctOf = (n, t) => Math.round(100 * n / t);
   const statsHtml = leagueStats.length ? `<div class="journal-section">
-      <h3 class="journal-h3">Les chiffres</h3>
+      <h3 class="journal-h3">Les chiffres du jour</h3>
       <table class="jtable"><thead><tr><th class="jt">Championnat</th><th>Buts</th><th>/match</th><th>Dom.</th><th>Nuls</th><th>Ext.</th></tr></thead><tbody>
         ${leagueStats.map(s => `<tr><td class="jt">${s.name}</td><td>${s.goals}</td><td><b>${jFmt(s.goals / s.matches)}</b></td><td>${pctOf(s.homeW, s.matches)}%</td><td>${pctOf(s.draws, s.matches)}%</td><td>${pctOf(s.awayW, s.matches)}%</td></tr>`).join('')}
       </tbody></table>
@@ -5738,133 +5842,151 @@ function journalDomestic(mdFirst, mdLast, items){
       <p class="journal-p"><b>Meilleures défenses de la saison</b> (encaissés/match) :<br>${defences.slice(0, 5).map((a, i) => `${i + 1}. ${a.team} <span class="jm">${jFmt(a.per)} · ${a.leagueName}</span>`).join('<br>')}</p>
     </div>` : '';
 
-  const formLine = e => `<li><b>${e.team}</b> <span class="jm">(${e.leagueName}, ${e.pos}e · ${e.pts} pts)</span> ${jFormHtml(e.form)}</li>`;
+  // ----- Formes (rédigées) -----
+  const formLine = e => `<li><b>${e.team}</b> ${jFormPhrase(e.form)}. <span class="jm">${jOrd(e.pos)} de ${e.leagueName}, ${e.pts} pts</span> ${jFormHtml(e.form)}</li>`;
   const formHtml = (hot.length || cold.length || unbeaten.length) ? `<div class="journal-section">
-      <h3 class="journal-h3">Les équipes en forme</h3>
-      <ul class="journal-list">${hot.slice(0, 10).map(e => `${formLine(e)}`).join('') || '<li>Personne ne s\'est vraiment détaché.</li>'}</ul>
-      ${unbeaten.length ? `<h3 class="journal-h3" style="margin-top:12px;">Invaincus sur 5 matches</h3><ul class="journal-list">${unbeaten.slice(0, 8).map(formLine).join('')}</ul>` : ''}
-      <h3 class="journal-h3" style="margin-top:12px;">Ceux qui sont dans le dur</h3>
-      <ul class="journal-list">${cold.slice(0, 8).map(formLine).join('') || '<li>Aucune équipe en vraie crise de résultats.</li>'}</ul>
+      <h3 class="journal-h3">Ils surfent sur la vague</h3>
+      <ul class="journal-list">${hot.slice(0, 8).map(formLine).join('') || '<li>Personne ne s\'est vraiment détaché.</li>'}</ul>
+      ${unbeaten.length ? `<h3 class="journal-h3" style="margin-top:12px;">Toujours invaincus</h3><ul class="journal-list">${unbeaten.slice(0, 6).map(formLine).join('')}</ul>` : ''}
+      <h3 class="journal-h3" style="margin-top:12px;">Ils coulent</h3>
+      <ul class="journal-list">${cold.slice(0, 6).map(formLine).join('') || '<li>Aucune équipe en vraie crise de résultats.</li>'}</ul>
     </div>` : '';
 
-  return { html, statsHtml, formHtml, chiffre };
+  return { articles: articles.join(''), statsHtml, formHtml, chiffre };
 }
 
-/* ----- Coupes d'Europe : tirage, classement de la phase de ligue, qualifiés ----- */
+/* ----- Coupes d'Europe ----- */
 function journalEuro(key, tasks, items){
   const league = LEAGUES[key], st = state[key];
   const short = key === 'ucl' ? 'Ligue des Champions' : 'Europa League';
   const article = key === 'ucl' ? 'la Ligue des Champions' : "l'Europa League";
-  const mdTasks = tasks.filter(t => t.kind === 'euro-md').map(t => t.md);
-  const lastMd = mdTasks.length ? Math.max(...mdTasks) : -1;
+  const kicker = short.toUpperCase();
   let html = '';
-  tasks.forEach(t => {
-    if (t.kind === 'euro-draw'){
-      if (!league.teams.length) return;
-      const fr = league.teams.filter(isFrenchClub);
-      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· Le tirage</span></h3>
-        <p class="journal-p">${league.teams.length} clubs au départ : ${league.qualifiedCount} qualifiés via les championnats et ${league.wildcardCount} invités venus du reste de l'Europe.${league.cdfNote ? ' ' + league.cdfNote : ''}</p>
-        <p class="journal-p">Côté français : ${fr.length ? fr.map(x => `<span class="jr-fr">${x}</span>`).join(', ') : 'aucun représentant'}.</p></div>`;
-      items.push({ score: 30, title: `${short.toUpperCase()} : LE TIRAGE EST FAIT`,
-        text: `Le tirage de ${article} a composé une phase de ligue à 36 clubs${fr.length ? `, dont ${fr.length} ${jPlural(fr.length, 'représentant français', 'représentants français')}` : ''}.` });
-    } else if (t.kind === 'euro-md'){
-      const md = t.md;
-      if (!st.results[md]) return;
-      const ms = st.schedule[md].map(([home, away], i) => ({ home, away, res: st.results[md][i] })).filter(m => m.res);
-      if (!ms.length) return;
-      const before = md > 0 ? tableUpTo(key, md - 1) : null;
-      const table = tableUpTo(key, md);
-      const goals = ms.reduce((s, m) => s + m.res[0] + m.res[1], 0);
-      const fr = table.map((r, i) => ({ r, pos: i + 1 })).filter(x => isFrenchClub(x.r.team))
-        .map(x => `<span class="jr-fr">${x.r.team}</span> ${x.pos}e <span class="jm">(${x.r.pts} pts)</span>`).join(' · ');
-      const perfect = md >= 1 ? table.filter(r => r.p >= 2 && r.w === r.p) : [];
-      const winless = md >= 2 ? table.filter(r => r.p >= 3 && r.w === 0) : [];
-      const bestAtt = table.slice().sort((a, b) => b.gf - a.gf)[0];
-      const bestDef = table.slice().sort((a, b) => a.ga - b.ga)[0];
-      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· Journée ${md + 1}</span></h3>
-        ${md === lastMd ? jTableHtml(table, before, jZoneEuro, true) + `<p class="journal-p jm" style="margin-top:4px;">Vert : qualifiés directs (1-8) · Bleu : barrages (9-24) · Rouge : éliminés (25-36)</p>` : `<p class="journal-p"><b>Leader</b> : ${jn(table[0].team, true)} (${table[0].pts} pts)</p>`}
-        <ul class="journal-list" style="margin-top:6px;">
-          <li><b>Chiffres</b> : ${goals} buts en ${ms.length} matches (${jFmt(goals / ms.length)}/match)</li>
-          <li><b>Meilleure attaque</b> : ${jn(bestAtt.team, true)} (${bestAtt.gf}) · <b>Meilleure défense</b> : ${jn(bestDef.team, true)} (${bestDef.ga})</li>
-          ${fr ? `<li><b>Les Français</b> : ${fr}</li>` : ''}
-          ${perfect.length ? `<li><b>Sans faute</b> : ${perfect.map(r => jn(r.team, true)).join(', ')}</li>` : ''}
-          ${winless.length ? `<li><b>Toujours sans victoire</b> : ${winless.map(r => jn(r.team, true)).join(', ')}</li>` : ''}
-          ${md === 7 ? `<li><i>Phase de ligue terminée : les 8 premiers filent en 8es, les places 9 à 24 jouent les barrages.</i></li>` : ''}
-        </ul></div>`;
-      const big = ms.slice().sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
-      if (big && Math.abs(big.res[0] - big.res[1]) >= 4){
-        const w = big.res[0] > big.res[1] ? { winner: big.home, loser: big.away, wg: big.res[0], lg: big.res[1] } : { winner: big.away, loser: big.home, wg: big.res[1], lg: big.res[0] };
-        items.push({ score: 52 + Math.abs(big.res[0] - big.res[1]) * 2, title: `${w.winner.toUpperCase()} TAILLE UNE COSTUME`, text: `En ${short}, ${w.winner} balaie ${w.loser} ${w.wg}-${w.lg}.` });
-      }
-      const frWin = ms.filter(m => (isFrenchClub(m.home) && m.res[0] > m.res[1]) || (isFrenchClub(m.away) && m.res[1] > m.res[0]))
-        .sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
-      if (frWin && Math.abs(frWin.res[0] - frWin.res[1]) >= 2){
-        const fw = frWin.res[0] > frWin.res[1] ? { winner: frWin.home, loser: frWin.away, wg: frWin.res[0], lg: frWin.res[1] } : { winner: frWin.away, loser: frWin.home, wg: frWin.res[1], lg: frWin.res[0] };
-        items.push({ score: 44, title: `${fw.winner.toUpperCase()} BRILLE EN EUROPE`, text: `Belle soirée européenne pour ${fw.winner}, vainqueur de ${fw.loser} ${fw.wg}-${fw.lg} en ${short}.` });
-      }
-    } else if (t.kind === 'euro-ko'){
-      const round = st.knockout && st.knockout.rounds.find(r => r.name === t.name);
-      if (!round) return;
-      const winners = round.ties.map(tie => tieWinner(tie)).filter(Boolean);
-      const losers = round.ties.map(tie => { const w = tieWinner(tie); return w ? (w === tie.teamA ? tie.teamB : tie.teamA) : null; }).filter(Boolean);
-      const direct = (round.name === 'Barrages' && st.knockout.direct) ? st.knockout.direct : [];
-      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· ${round.name}</span></h3>
-        <ul class="journal-list">
-          <li><b>Qualifiés (${winners.length})</b> : ${winners.map(x => jn(x, true)).join(', ')}</li>
-          <li><b>Éliminés (${losers.length})</b> : ${losers.map(x => jn(x, true)).join(', ')}</li>
-          ${direct.length ? `<li><b>Déjà qualifiés pour les 8es</b> : ${direct.map(x => jn(x, true)).join(', ')}</li>` : ''}
-          <li><b>Français encore en course</b> : ${winners.concat(direct).filter(isFrenchClub).map(x => `<span class="jr-fr">${x}</span>`).join(', ') || 'aucun'}</li>
-        </ul></div>`;
-      round.ties.forEach(tie => {
-        const w = tieWinner(tie); if (!w) return;
-        const l = w === tie.teamA ? tie.teamB : tie.teamA;
-        if ((STRENGTHS[l] ?? 55) - (STRENGTHS[w] ?? 55) >= 12 && round.name !== 'Barrages') items.push({ score: 48, title: `${w.toUpperCase()} ÉLIMINE ${l.toUpperCase()}`, text: `Grosse surprise en ${short} : ${w} sort ${l} en ${round.name.toLowerCase()}.` });
-      });
-      if (round.name === 'Finale'){
-        const w = tieWinner(round.ties[0]);
-        if (w) items.push({ score: 97, title: key === 'ucl' ? `${w.toUpperCase()}, ROI D'EUROPE` : `${w.toUpperCase()} SACRÉ EN EUROPA LEAGUE`, text: `${w} remporte ${article}.` });
-      } else {
-        const frLeft = winners.filter(isFrenchClub);
-        if (frLeft.length) items.push({ score: 36, title: `${short.toUpperCase()} : LES FRANÇAIS ALLER PLUS LOIN`, text: `${frLeft.join(', ')} ${jPlural(frLeft.length, 'représente', 'représentent')} la France au tour suivant en ${short}.` });
-      }
+
+  tasks.filter(t => t.kind === 'euro-draw').forEach(() => {
+    if (!league.teams.length) return;
+    const fr = league.teams.filter(isFrenchClub);
+    const favs = league.teams.slice().sort((a, b) => (STRENGTHS[b] ?? 55) - (STRENGTHS[a] ?? 55)).slice(0, 3);
+    html += jArticle(`${kicker} · Le tirage`, jPick([`${short} : le tirage a parlé`, `${short} : les 36 sont connus`], key),
+      `${league.teams.length} clubs au départ, dont ${fr.length} ${jPlural(fr.length, 'Français', 'Français')}.`,
+      [`${league.qualifiedCount} clubs sont qualifiés via leur championnat, ${league.wildcardCount} invités viennent du reste de l'Europe.${league.cdfNote ? ' ' + league.cdfNote : ''}`,
+       `Sur le papier, ${jList(favs)} font figure de favoris. ${fr.length ? `Côté français, ${jList(fr.map(x => `<span class="jr-fr">${x}</span>`))} ${jPlural(fr.length, 'porte', 'portent')} les couleurs du pays.` : 'Aucun club français n\'est engagé.'}`]);
+    items.push({ score: 30, title: `${short.toUpperCase()} : LE TIRAGE EST FAIT`, text: `Le tirage de ${article} a composé une phase de ligue à 36 clubs${fr.length ? `, dont ${fr.length} ${jPlural(fr.length, 'représentant français', 'représentants français')}` : ''}.` });
+  });
+
+  // Phase de ligue : un seul article pour l'ensemble des journées du jour
+  const mdTasks = tasks.filter(t => t.kind === 'euro-md').map(t => t.md).sort((a, b) => a - b);
+  if (mdTasks.length && st.results[mdTasks[mdTasks.length - 1]] && st.results[mdTasks[mdTasks.length - 1]].every(r => r)){
+    const first = mdTasks[0], lastMd = mdTasks[mdTasks.length - 1];
+    const before = first > 0 ? tableUpTo(key, first - 1) : null;
+    const table = tableUpTo(key, lastMd);
+    const rangeTxt = first === lastMd ? `journée ${first + 1}` : `journées ${first + 1} à ${lastMd + 1}`;
+    const leader = table[0];
+    const perfect = lastMd >= 1 ? table.filter(r => r.p >= 2 && r.w === r.p) : [];
+    const winless = lastMd >= 2 ? table.filter(r => r.p >= 3 && r.w === 0) : [];
+    const frRows = table.map((r, i) => ({ r, pos: i + 1 })).filter(x => isFrenchClub(x.r.team));
+    const frTop8 = frRows.filter(x => x.pos <= 8), frBar = frRows.filter(x => x.pos > 8 && x.pos <= 24), frOut = frRows.filter(x => x.pos > 24);
+    const bestAtt = table.slice().sort((a, b) => b.gf - a.gf)[0];
+    const t8 = table[7], t9 = table[8], t24 = table[23], t25 = table[24];
+    const title = lastMd === 7 ? `${short} : la phase de ligue est bouclée`
+      : (first === 0 ? `${short} : c'est parti !` : jPick([`${short} : la course au top 8 s'accélère`, `${short} : ça se resserre`, `${short} : les premiers verdicts tombent`], key + first));
+    const chapo = `${jn(leader.team, true)} (${leader.pts} pts) est en tête après ${first === lastMd ? 'la journée ' + (first + 1) : 'les journées ' + (first + 1) + ' à ' + (lastMd + 1)}${lastMd === 7 ? ' et termine premier de la phase de ligue' : ''}.${frRows.length ? ` Côté français : ${frTop8.length} dans le top 8, ${frBar.length} en barrages, ${frOut.length} sous la barre.` : ''}`;
+    const p1 = `${jn(leader.team, true)} occupe la tête avec ${leader.pts} points. ${perfect.length ? `${jList(perfect.map(r => jn(r.team, true)))} ${jPlural(perfect.length, 'affiche', 'affichent')} un sans-faute. ` : ''}${jn(bestAtt.team, true)} possède la meilleure attaque (${bestAtt.gf} buts).`;
+    const p2 = frRows.length
+      ? `Côté français, ${jList(frRows.map(x => `<span class="jr-fr">${x.r.team}</span> (${jOrd(x.pos)}, ${x.r.pts} pts)`))}. ${frOut.length ? `${jList(frOut.map(x => x.r.team))} ${jPlural(frOut.length, 'est', 'sont')} pour l'instant sous la ligne de flottaison.` : (frTop8.length ? 'Le bilan tricolore est plutôt flatteur.' : '')}`
+      : '';
+    const p3 = `La barre du top 8 se situe à ${t8.pts} points (${jn(t8.team, true)}) ; ${jn(t9.team, true)} (9e) est le premier barragiste. Pour les barrages, la 24e place appartient à ${jn(t24.team, true)} (${t24.pts} pts) ; ${jn(t25.team, true)} (25e, ${t25.pts} pts) est le premier éliminé provisoire. ${winless.length ? `${jList(winless.map(r => jn(r.team, true)))} ${jPlural(winless.length, 'reste', 'restent')} sans victoire.` : ''}${lastMd === 7 ? ' Les 8 premiers filent en 8es, les places 9 à 24 jouent les barrages.' : ''}`;
+    html += jArticle(`${kicker} · ${rangeTxt[0].toUpperCase() + rangeTxt.slice(1)}`, title, chapo, [p1, p2, p3],
+      jTableHtml(table.slice(0, 24), before, jZoneEuro, true) + `<p class="jcap">Vert : qualifiés directs (1-8) · Bleu : barrages (9-24) · les 12 derniers ne figurent pas dans le tableau</p>`);
+
+    const ms = st.schedule[lastMd].map(([home, away], i) => ({ home, away, res: st.results[lastMd][i] })).filter(m => m.res);
+    const big = ms.slice().sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
+    if (big && Math.abs(big.res[0] - big.res[1]) >= 4){
+      const w = big.res[0] > big.res[1] ? { winner: big.home, loser: big.away, wg: big.res[0], lg: big.res[1] } : { winner: big.away, loser: big.home, wg: big.res[1], lg: big.res[0] };
+      items.push({ score: 52 + Math.abs(big.res[0] - big.res[1]) * 2, title: `${w.winner.toUpperCase()} TAILLE UNE COSTUME`, text: `En ${short}, ${w.winner} balaie ${w.loser} ${w.wg}-${w.lg}.` });
     }
+    const frWin = ms.filter(m => (isFrenchClub(m.home) && m.res[0] > m.res[1]) || (isFrenchClub(m.away) && m.res[1] > m.res[0]))
+      .sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
+    if (frWin && Math.abs(frWin.res[0] - frWin.res[1]) >= 2){
+      const fw = frWin.res[0] > frWin.res[1] ? { winner: frWin.home, loser: frWin.away, wg: frWin.res[0], lg: frWin.res[1] } : { winner: frWin.away, loser: frWin.home, wg: frWin.res[1], lg: frWin.res[0] };
+      items.push({ score: 44, title: `${fw.winner.toUpperCase()} BRILLE EN EUROPE`, text: `Belle soirée européenne pour ${fw.winner}, vainqueur de ${fw.loser} ${fw.wg}-${fw.lg} en ${short}.` });
+    }
+  }
+
+  // Phases finales
+  tasks.filter(t => t.kind === 'euro-ko').forEach(t => {
+    const round = st.knockout && st.knockout.rounds.find(r => r.name === t.name);
+    if (!round) return;
+    const winners = round.ties.map(tie => tieWinner(tie)).filter(Boolean);
+    const losers = round.ties.map(tie => { const w = tieWinner(tie); return w ? (w === tie.teamA ? tie.teamB : tie.teamA) : null; }).filter(Boolean);
+    if (round.name === 'Finale'){
+      const w = tieWinner(round.ties[0]), l = losers[0];
+      if (!w) return;
+      const dk = domesticKeyOfTeam(w);
+      const title = key === 'ucl' ? `${w}, roi d'Europe` : `${w} s'offre l'Europa League`;
+      const paras = [
+        `${w} ${dk ? `(${LEAGUES[dk].name}) ` : ''}s'impose en finale face à ${l} et soulève ${article}. ${isFrenchClub(w) ? 'Un sacre qui fera date pour le football français.' : 'Une soirée qui restera dans l\'histoire du club.'}`,
+        `${l} devra se contenter du rôle de finaliste malheureux.`
+      ];
+      html += jArticle(`${kicker} · La finale`, title, `${w} remporte ${article}.`, paras);
+      items.push({ score: 97, title: key === 'ucl' ? `${w.toUpperCase()}, ROI D'EUROPE` : `${w.toUpperCase()} SACRÉ EN EUROPA LEAGUE`, text: `${w} remporte ${article}.`, body: paras });
+      return;
+    }
+    const direct = (round.name === 'Barrages' && st.knockout.direct) ? st.knockout.direct : [];
+    const frIn = winners.concat(direct).filter(isFrenchClub);
+    const bigLoser = losers.slice().sort((a, b) => (STRENGTHS[b] ?? 55) - (STRENGTHS[a] ?? 55))[0];
+    html += jArticle(`${kicker} · ${round.name}`, `${short} : ${round.name.toLowerCase()}, ${winners.length} qualifiés`,
+      `${winners.length} clubs passent au tour suivant${frIn.length ? `, dont ${frIn.length} ${jPlural(frIn.length, 'Français', 'Français')}` : ''}.`,
+      [`Sont qualifiés : ${winners.map(x => jn(x, true)).join(', ')}.${direct.length ? ` Ils rejoignent les huit premiers de la phase de ligue, déjà dans le tableau final : ${direct.map(x => jn(x, true)).join(', ')}.` : ''}`,
+       bigLoser ? `Le gros nom sur le carreau : ${jn(bigLoser, true)}. ${losers.length > 1 ? (() => { const others = losers.filter(x => x !== bigLoser).slice(0, 4); return `Avec lui, ${jList(others.map(x => jn(x, true)))}${losers.length > 5 ? ' et d\'autres' : ''} ${jPlural(others.length + (losers.length > 5 ? 1 : 0), 'prend', 'prennent')} la porte.`; })() : ''}` : '',
+       frIn.length ? `Les Français encore en course : ${frIn.map(x => `<span class="jr-fr">${x}</span>`).join(', ')}.` : 'Plus aucun club français n\'est en course.']);
+    round.ties.forEach(tie => {
+      const w = tieWinner(tie); if (!w) return;
+      const l = w === tie.teamA ? tie.teamB : tie.teamA;
+      if ((STRENGTHS[l] ?? 55) - (STRENGTHS[w] ?? 55) >= 12 && round.name !== 'Barrages') items.push({ score: 48, title: `${w.toUpperCase()} ÉLIMINE ${l.toUpperCase()}`, text: `Grosse surprise en ${short} : ${w} sort ${l} en ${round.name.toLowerCase()}.` });
+    });
+    const frLeft = winners.filter(isFrenchClub);
+    if (frLeft.length) items.push({ score: 36, title: `${short.toUpperCase()} : LES FRANÇAIS ALLER PLUS LOIN`, text: `${frLeft.join(', ')} ${jPlural(frLeft.length, 'représente', 'représentent')} la France au tour suivant en ${short}.` });
   });
   return html;
 }
 
-/* ----- Coupe de France : composition du tableau et qualifiés ----- */
+/* ----- Coupe de France ----- */
 function journalCdf(tasks, items){
   const st = state.coupefrance, league = LEAGUES.coupefrance;
   let html = '';
   tasks.forEach(t => {
     if (t.kind === 'cdf-draw'){
       if (!league.teams.length || !st.knockout) return;
-      html += `<div class="journal-section"><h3 class="journal-h3">Coupe de France <span class="jm">· Le tirage</span></h3>
-        <p class="journal-p">${league.teams.length} clubs dans le tableau : ${league.qualifiedCount} de Ligue 1 et ${league.wildcardCount} de Ligue 2, match sec à chaque tour.</p></div>`;
+      const bigOnes = league.teams.filter(x => LEAGUES.l1.teams.includes(x)).sort((a, b) => (STRENGTHS[b] ?? 55) - (STRENGTHS[a] ?? 55)).slice(0, 3);
+      html += jArticle('COUPE DE FRANCE · Le tirage', 'Coupe de France : le tableau est connu',
+        `${league.teams.length} clubs au départ : ${league.qualifiedCount} de Ligue 1 et ${league.wildcardCount} de Ligue 2.`,
+        [`Match sec à chaque tour, et en cas d'égalité, direction les tirs au but : la formule favorise les surprises.`,
+         `${jList(bigOnes)} figurent parmi les favoris. Mais la Coupe de France a l'habitude de bousculer la hiérarchie : les clubs de Ligue 2 n'ont rien à perdre.`]);
       items.push({ score: 28, title: 'COUPE DE FRANCE : LE TIRAGE A PARLÉ', text: `Le tableau de la Coupe de France est connu : ${league.qualifiedCount} clubs de L1 et ${league.wildcardCount} de L2 au départ.` });
     } else if (t.kind === 'cdf-round'){
       const round = st.knockout && st.knockout.rounds.find(r => r.name === t.name);
       if (!round) return;
       const winners = round.ties.map(tie => tieWinner(tie)).filter(Boolean);
       const losers = round.ties.map(tie => { const w = tieWinner(tie); return w ? (w === tie.teamA ? tie.teamB : tie.teamA) : null; }).filter(Boolean);
+      if (round.name === 'Finale'){
+        const w = tieWinner(round.ties[0]), l = losers[0];
+        if (!w) return;
+        const paras = [`En finale, ${l} n'a pas réussi à empêcher ${w} de s'offrir le trophée. ${LEAGUES.l1.teams.includes(w) ? '' : `Un club de Ligue 2 sur le toit du pays : le conte de fées est complet. `}Le vainqueur décroche un billet pour l'Europa League de la saison prochaine.`];
+        html += jArticle('COUPE DE FRANCE · La finale', `${w} soulève la Coupe`, `${w} remporte la Coupe de France.`, paras);
+        items.push({ score: 95, title: `${w.toUpperCase()} SOULÈVE LA COUPE`, text: `${w} remporte la Coupe de France.`, body: paras });
+        return;
+      }
       const l1In = winners.filter(x => LEAGUES.l1.teams.includes(x)), l2In = winners.filter(x => !LEAGUES.l1.teams.includes(x));
       const l1Out = losers.filter(x => LEAGUES.l1.teams.includes(x));
-      html += `<div class="journal-section"><h3 class="journal-h3">Coupe de France <span class="jm">· ${round.name}</span></h3>
-        <ul class="journal-list">
-          <li><b>Qualifiés (${winners.length})</b> : ${winners.join(', ')}</li>
-          <li><b>Encore en lice</b> : ${l1In.length} clubs de L1 · ${l2In.length} de L2</li>
-          ${l1Out.length ? `<li><b>Clubs de L1 éliminés (${l1Out.length})</b> : ${l1Out.join(', ')}</li>` : ''}
-          ${l2In.length ? `<li><b>Petits poucets toujours là</b> : ${l2In.join(', ')}</li>` : ''}
-        </ul></div>`;
-      round.ties.forEach(tie => {
-        const w = tieWinner(tie); if (!w) return;
-        const l = w === tie.teamA ? tie.teamB : tie.teamA;
-        if (!LEAGUES.l1.teams.includes(w) && LEAGUES.l1.teams.includes(l)) items.push({ score: 58, title: `LE PETIT POUCET ${w.toUpperCase()} ÉLIMINE ${l.toUpperCase()}`, text: `Exploit en Coupe de France : ${w}, club de Ligue 2, sort ${l} en ${round.name.toLowerCase()}.` });
-      });
-      if (round.name === 'Finale'){
-        const w = tieWinner(round.ties[0]);
-        if (w) items.push({ score: 95, title: `${w.toUpperCase()} SOULÈVE LA COUPE`, text: `${w} remporte la Coupe de France.` });
-      }
+      const poucets = round.ties.map(tie => { const w = tieWinner(tie); if (!w) return null; const l = w === tie.teamA ? tie.teamB : tie.teamA; return (!LEAGUES.l1.teams.includes(w) && LEAGUES.l1.teams.includes(l)) ? { w, l } : null; }).filter(Boolean);
+      const title = poucets.length ? `Coupe de France : ${poucets[0].w} crée l'exploit` : `Coupe de France : ${round.name.toLowerCase()}, les qualifiés`;
+      html += jArticle(`COUPE DE FRANCE · ${round.name}`, title,
+        `${winners.length} clubs passent au tour suivant : ${l1In.length} de Ligue 1 et ${l2In.length} de Ligue 2.`,
+        [`Sont qualifiés : ${winners.join(', ')}.`,
+         l1Out.length ? `Chez les pensionnaires de l'élite, ${jList(l1Out)} ${jPlural(l1Out.length, 'est éliminé', 'sont éliminés')}. ${poucets.length ? `${jList(poucets.map(p => `${p.w} a sorti ${p.l}`))} : les petits poucets de Ligue 2 font trembler les grands.` : ''}` : 'Aucun club de Ligue 1 n\'est tombé : la hiérarchie est respectée.',
+         l2In.length ? `Il reste ${l2In.length} ${jPlural(l2In.length, 'club de Ligue 2', 'clubs de Ligue 2')} en lice : ${jList(l2In)}.` : 'Plus aucun club de Ligue 2 dans le tableau.']);
+      poucets.forEach(p => items.push({ score: 58, title: `LE PETIT POUCET ${p.w.toUpperCase()} ÉLIMINE ${p.l.toUpperCase()}`, text: `Exploit en Coupe de France : ${p.w}, club de Ligue 2, sort ${p.l} en ${round.name.toLowerCase()}.` }));
     }
   });
   return html;
@@ -5884,6 +6006,7 @@ function buildJournalHtml(dayIdx){
   const top = items[0];
   const headline = top ? top.title : 'UNE JOURNÉE SANS ÉCLAT';
   const standfirst = top ? top.text : 'Les cinq grands championnats ont déroulé sans grosse surprise.';
+  const uneBody = top && top.body ? top.body : (dom && dom.chiffre ? [`Au total, ${dom.chiffre} ont animé les cinq grands championnats sur la période.`] : []);
   const more = items.slice(1, 6);
 
   const monday = seasonMonday(currentSeason);
@@ -5894,11 +6017,13 @@ function buildJournalHtml(dayIdx){
   return `
     <div class="journal-masthead"><div class="journal-title">LE QUOTIDIEN DU FOOT</div></div>
     <div class="journal-meta"><span>Édition du ${DAY_NAMES[dayIdx].toLowerCase()} ${dateLabel}</span><span>Saison ${seasonLabel(currentSeason)}</span><span>N° ${issue}</span></div>
+    <div class="ja-kicker">À la une</div>
     <div class="journal-headline">${headline}</div>
     <div class="journal-standfirst">${standfirst}${dom && dom.chiffre ? ` <span class="jm">· Chiffre du jour : ${dom.chiffre}.</span>` : ''}</div>
-    ${more.length ? `<div class="journal-section journal-more"><h3 class="journal-h3">À lire aussi</h3><ul class="journal-list">${more.map(it => `<li>${it.text}</li>`).join('')}</ul></div>` : ''}
+    ${uneBody.length ? `<div class="ja-une">${uneBody.map(p => `<p class="ja-p">${p}</p>`).join('')}</div>` : ''}
+    ${more.length ? `<div class="journal-section journal-more"><h3 class="journal-h3">En bref</h3><ul class="journal-list">${more.map(it => `<li>${it.text}</li>`).join('')}</ul></div>` : ''}
     <div class="journal-cols">
-      ${dom ? dom.html : ''}${euroHtml}${dom ? dom.statsHtml : ''}${dom ? dom.formHtml : ''}${cdfHtml}
+      ${euroHtml}${dom ? dom.articles : ''}${cdfHtml}${dom ? dom.formHtml : ''}${dom ? dom.statsHtml : ''}
     </div>`;
 }
 
