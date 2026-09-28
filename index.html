@@ -722,6 +722,46 @@
   .weekly-task{font-size:11.5px;padding:3px 0;display:flex;gap:6px;align-items:flex-start;color:var(--muted);line-height:1.3;}
   .weekly-task.done{color:var(--green);text-decoration:line-through;}
   .weekly-task .wt-icon{flex-shrink:0;}
+
+  /* ---------- Journal du jour (quotidien sportif) ---------- */
+  .journal-btn{
+    margin-top:8px; width:100%; padding:6px 8px; cursor:pointer;
+    font-family:'Bebas Neue',sans-serif; font-size:15px; letter-spacing:.03em;
+    background:var(--amber); color:#0a0f0d; border:none; border-radius:3px;
+  }
+  :root[data-theme="light"] .journal-btn{ color:#fff; }
+  .journal-btn:hover{ filter:brightness(1.08); }
+  .journal-sheet{
+    position:relative; width:100%; max-width:1000px; max-height:94vh; overflow-y:auto;
+    background:#f3eedc; color:#1b1a17; border-radius:4px; padding:22px 26px 30px;
+    font-family:Georgia,'Times New Roman',serif; box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  .journal-close{
+    position:sticky; top:0; float:right; z-index:3; width:32px; height:32px; margin:-8px -10px 0 8px;
+    background:#1b1a17; color:#f3eedc; border:none; border-radius:50%; cursor:pointer; font-size:15px;
+  }
+  .journal-masthead{ text-align:center; border-top:5px double #1b1a17; border-bottom:5px double #1b1a17; padding:10px 0 6px; }
+  .journal-title{ font-family:'Bebas Neue',sans-serif; font-size:clamp(32px,7vw,66px); letter-spacing:.05em; line-height:1; }
+  .journal-meta{
+    display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin:0 0 14px; padding:4px 0;
+    border-bottom:1px solid #1b1a17; font-family:'JetBrains Mono',monospace; font-size:10.5px; text-transform:uppercase;
+  }
+  .journal-headline{ font-family:'Bebas Neue',sans-serif; font-size:clamp(28px,6vw,54px); line-height:1.02; margin:4px 0 6px; }
+  .journal-standfirst{ font-style:italic; font-size:15px; line-height:1.4; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid #1b1a17; }
+  .journal-more{ margin-bottom:14px; padding-bottom:6px; border-bottom:1px solid #b9b29a; }
+  .journal-cols{ column-count:2; column-gap:28px; column-rule:1px solid #b9b29a; }
+  @media (max-width:760px){ .journal-cols{ column-count:1; } .journal-sheet{ padding:16px 14px 24px; } }
+  .journal-section{ margin-bottom:16px; break-inside:avoid-column; }
+  .journal-h3{ font-family:'Bebas Neue',sans-serif; font-size:21px; letter-spacing:.03em; margin:0 0 6px; padding-bottom:2px; border-bottom:2px solid #1b1a17; }
+  .journal-p{ font-size:13.5px; line-height:1.45; margin:0 0 6px; }
+  .journal-list{ list-style:none; margin:0; padding:0; font-size:13px; line-height:1.45; }
+  .journal-list li{ padding:2px 0; border-bottom:1px dotted #b9b29a; }
+  .journal-results{ font-size:12.5px; }
+  .journal-sheet .jm{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#6d6753; }
+  .journal-sheet .jr-fr{ font-weight:700; border-bottom:2px solid #2f6fd6; }
+  .journal-sheet .jf{ display:inline-block; width:15px; height:15px; line-height:15px; margin-right:2px; text-align:center; border-radius:2px; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700; color:#fff; }
+  .journal-sheet .jf-W{ background:#1f8f52; } .journal-sheet .jf-D{ background:#8a856f; } .journal-sheet .jf-L{ background:#d13333; }
+
   /* ---------- Mise en avant des clubs français en LDC / Europa League ---------- */
   .fr-club{
     display:inline-block;
@@ -1005,6 +1045,13 @@
         <button class="reset-btn" id="strengths-reset-btn" style="margin-top:0;">Réinitialiser aux valeurs par défaut</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="live-overlay" id="journal-overlay" style="display:none;">
+  <div class="journal-sheet">
+    <button class="journal-close" id="journal-close-btn" aria-label="Fermer">✕</button>
+    <div id="journal-body"></div>
   </div>
 </div>
 
@@ -5393,12 +5440,12 @@ function buildWeeklyTasks(){
   const totalMd = maxMatchdays();
   for (let idx = 0; idx < totalMd; idx++){
     const done = DOMESTIC_KEYS.every(k => idx >= state[k].schedule.length || state[k].results[idx].every(r => r !== null));
-    domestic.push({ label: `Journée ${idx + 1} — 5 championnats`, done });
+    domestic.push({ label: `Journée ${idx + 1} — 5 championnats`, done, kind: 'domestic', md: idx });
   }
 
-  const cdf = [{ label: 'Coupe de France — tirage au sort', done: LEAGUES.coupefrance.teams.length > 0 }];
+  const cdf = [{ label: 'Coupe de France — tirage au sort', done: LEAGUES.coupefrance.teams.length > 0, kind: 'cdf-draw' }];
   const cdfDoneCount = knockoutDoneCount('coupefrance', CDF_ROUND_ORDER);
-  CDF_ROUND_ORDER.forEach((name, i) => cdf.push({ label: `Coupe de France — ${name}`, done: i < cdfDoneCount }));
+  CDF_ROUND_ORDER.forEach((name, i) => cdf.push({ label: `Coupe de France — ${name}`, done: i < cdfDoneCount, kind: 'cdf-round', name }));
 
   // La LDC et l'Europa League ne se disputent pas lors de la première saison (il faut un
   // premier classement de championnat terminé pour désigner les qualifiés) : on ne les fait
@@ -5409,13 +5456,13 @@ function buildWeeklyTasks(){
 
   const euro = {};
   [['ucl', 'C1'], ['uel', 'Europa']].forEach(([key, short]) => {
-    const q = [{ label: `${short} — tirage au sort`, done: LEAGUES[key].teams.length > 0 }];
+    const q = [{ label: `${short} — tirage au sort`, done: LEAGUES[key].teams.length > 0, kind: 'euro-draw', key }];
     for (let idx = 0; idx < 8; idx++){
       const done = idx < state[key].schedule.length && state[key].results[idx].every(r => r !== null);
-      q.push({ label: `${short} — journée ${idx + 1}`, done });
+      q.push({ label: `${short} — journée ${idx + 1}`, done, kind: 'euro-md', key, md: idx });
     }
     const doneCount = knockoutDoneCount(key, EURO_ROUND_ORDER);
-    EURO_ROUND_ORDER.forEach((name, i) => q.push({ label: `${short} — ${name}`, done: i < doneCount }));
+    EURO_ROUND_ORDER.forEach((name, i) => q.push({ label: `${short} — ${name}`, done: i < doneCount, kind: 'euro-ko', key, name }));
     euro[key] = q;
   });
 
@@ -5437,6 +5484,7 @@ function splitAcrossWeek(queue){
   return days;
 }
 
+let weeklyDayTasks = []; // tâches de chaque jour du planning (sert au journal du jour)
 function renderWeeklyPlan(){
   document.getElementById('weekly-season-label').textContent = seasonLabel(currentSeason);
   const { domestic, cdf, ucl, uel } = buildWeeklyTasks();
@@ -5460,12 +5508,355 @@ function renderWeeklyPlan(){
     dayDate.setUTCDate(dayDate.getUTCDate() + i);
     const dateLabel = `${String(dayDate.getUTCDate()).padStart(2, '0')}/${String(dayDate.getUTCMonth() + 1).padStart(2, '0')}`;
     const dayTasks = [...domesticDays[i], ...cdfDays[i], ...uclDays[i], ...uelDays[i]];
+    weeklyDayTasks[i] = dayTasks;
     const tasksHtml = dayTasks.length
       ? dayTasks.map(t => `<div class="weekly-task${t.done ? ' done' : ''}"><span class="wt-icon">${t.done ? '✅' : '⬜'}</span><span>${t.label}</span></div>`).join('')
       : '<div class="weekly-empty">Rien de prévu</div>';
-    return `<div class="weekly-day${i === todayIdx ? ' today' : ''}"><h4>${name}<span class="wd-date">${dateLabel}</span></h4>${tasksHtml}</div>`;
+    // Jour entièrement bouclé : on propose son "journal" (quotidien sportif du jour).
+    const dayAllDone = dayTasks.length > 0 && dayTasks.every(t => t.done);
+    const journalBtn = dayAllDone ? `<button class="journal-btn" data-day="${i}">📰 Lire le journal</button>` : '';
+    return `<div class="weekly-day${i === todayIdx ? ' today' : ''}"><h4>${name}<span class="wd-date">${dateLabel}</span></h4>${tasksHtml}${journalBtn}</div>`;
   }).join('');
 }
+
+/* =====================================================================
+   JOURNAL DE LA SEMAINE — un "quotidien sportif" pour chaque jour du planning bouclé
+   ===================================================================== */
+function jHash(s){ let h = 0; for (let i = 0; i < s.length; i++){ h = (h * 31 + s.charCodeAt(i)) | 0; } return Math.abs(h); }
+// Choix "aléatoire" mais stable (même texte à chaque ouverture du même journal)
+function jPick(arr, seed){ return arr[jHash(String(seed)) % arr.length]; }
+const J_FORM_FR = { W: 'V', D: 'N', L: 'D' };
+function jFormHtml(form){ return form.map(r => `<span class="jf jf-${r}">${J_FORM_FR[r]}</span>`).join(''); }
+function jn(team, euro){ return (euro && isFrenchClub(team)) ? `<span class="jr-fr">${team}</span>` : team; }
+function jWinnerFirst(m){
+  return m.hg >= m.ag
+    ? { winner: m.home, loser: m.away, wg: m.hg, lg: m.ag }
+    : { winner: m.away, loser: m.home, wg: m.ag, lg: m.hg };
+}
+function jPlural(n, one, many){ return n > 1 ? many : one; }
+
+// Classement d'un championnat / d'une phase de ligue tel qu'il était à l'issue de la journée upToMd
+// (incluse), avec la forme sur les 5 derniers matchs. Reconstitué à partir des résultats enregistrés.
+function tableUpTo(key, upToMd){
+  const league = LEAGUES[key], st = state[key];
+  const table = {};
+  league.teams.forEach(t => table[t] = { team: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, form: [] });
+  for (let md = 0; md <= upToMd && md < st.results.length; md++){
+    st.results[md].forEach((res, i) => {
+      if (!res) return;
+      const [home, away] = st.schedule[md][i];
+      const H = table[home], A = table[away];
+      if (!H || !A) return;
+      const [hg, ag] = res;
+      H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
+      if (hg > ag){ H.w++; A.l++; H.form.push('W'); A.form.push('L'); }
+      else if (hg < ag){ A.w++; H.l++; H.form.push('L'); A.form.push('W'); }
+      else { H.d++; A.d++; H.form.push('D'); A.form.push('D'); }
+    });
+  }
+  const rows = Object.values(table).map(r => ({ ...r, gd: r.gf - r.ga, pts: r.w * 3 + r.d, form: r.form.slice(-5) }));
+  rows.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.localeCompare(b.team));
+  return rows;
+}
+
+function journalTieLine(tie, euro){
+  const w = tieWinner(tie);
+  let score = '–';
+  if (tie.singleLeg){ if (tie.leg1) score = `${tie.leg1[0]}-${tie.leg1[1]}`; }
+  else { const agg = tieAggregate(tie); if (agg) score = `${agg.aggA}-${agg.aggB} <span class="jm">agr.</span>`; }
+  const pens = (tie.manualWinner && tieNeedsManualCallDone(tie)) ? ' <span class="jm">t.a.b.</span>' : '';
+  return `${jn(tie.teamA, euro)} <b>${score}</b>${pens} ${jn(tie.teamB, euro)} <span class="jm">→</span> <strong>${w || '?'}</strong>`;
+}
+// Égalité (score sec ou agrégat) tranchée par la séance de tirs au but ?
+function tieNeedsManualCallDone(tie){
+  if (tie.singleLeg) return !!tie.leg1 && tie.leg1[0] === tie.leg1[1];
+  const agg = tieAggregate(tie);
+  return !!agg && agg.aggA === agg.aggB;
+}
+
+/* ----- Championnats : résumé d'une plage de journées ----- */
+function journalDomestic(mdFirst, mdLast, items){
+  let html = '';
+  let totalGoals = 0, totalMatches = 0;
+  const allMatches = [];
+  const hot = [], cold = [];
+  const rangeLabel = mdFirst === mdLast ? `J${mdFirst + 1}` : `J${mdFirst + 1} à J${mdLast + 1}`;
+
+  DOMESTIC_KEYS.forEach(key => {
+    const league = LEAGUES[key], st = state[key];
+    const last = Math.min(mdLast, st.schedule.length - 1);
+    if (last < mdFirst) return;
+    const before = mdFirst > 0 ? tableUpTo(key, mdFirst - 1) : null;
+    const after = tableUpTo(key, last);
+    const total = after.length;
+    const relegCount = league.europe.releg + (league.europe.releg2 || 0);
+
+    const ms = [], gf = {}, ga = {};
+    for (let md = mdFirst; md <= last; md++){
+      st.schedule[md].forEach(([home, away], i) => {
+        const res = st.results[md][i];
+        if (!res) return;
+        ms.push({ key, md, home, away, hg: res[0], ag: res[1] });
+        gf[home] = (gf[home] || 0) + res[0]; ga[home] = (ga[home] || 0) + res[1];
+        gf[away] = (gf[away] || 0) + res[1]; ga[away] = (ga[away] || 0) + res[0];
+      });
+    }
+    if (!ms.length) return;
+    ms.forEach(m => { totalGoals += m.hg + m.ag; totalMatches++; allMatches.push(m); });
+
+    // --- Phrase sur le leader ---
+    const leader = after[0], second = after[1];
+    const seasonOver = last === st.schedule.length - 1 && st.results.every(md => md.every(r => r));
+    let leaderTxt;
+    if (seasonOver){
+      leaderTxt = `<b>${leader.team}</b> est sacré champion de ${league.name} avec ${leader.pts} points, ${leader.pts - second.pts} d'avance sur ${second.team}.`;
+      items.push({ score: 100, title: `${leader.team.toUpperCase()} CHAMPION !`,
+        text: `${leader.team} remporte le titre en ${league.name} (${leader.pts} pts, ${leader.w}V-${leader.d}N-${leader.l}D).` });
+    } else if (before && before[0].team !== leader.team){
+      leaderTxt = `<b>${leader.team}</b> détrône ${before[0].team} et s'empare de la tête de ${league.name} (${leader.pts} pts).`;
+      items.push({ score: 70, title: jPick([`${leader.team.toUpperCase()} PREND LE POUVOIR`, `CHANGEMENT DE LEADER EN ${league.name.toUpperCase()}`], leader.team + key),
+        text: `${leader.team} prend la tête de ${league.name} au nez et à la barbe de ${before[0].team}.` });
+    } else {
+      const gap = leader.pts - second.pts;
+      leaderTxt = gap === 0
+        ? `<b>${leader.team}</b> reste en tête de ${league.name} (${leader.pts} pts), mais ${second.team} est revenu à sa hauteur.`
+        : `<b>${leader.team}</b> reste en tête de ${league.name} avec ${leader.pts} pts, ${gap} ${jPlural(gap, 'point', 'points')} devant ${second.team}.`;
+    }
+
+    // --- Podium / zone rouge / stats de la période ---
+    const podium = after.slice(0, 3).map((r, i) => `${i + 1}. ${r.team} <span class="jm">${r.pts}</span>`).join(' · ');
+    const redZone = after.slice(total - relegCount).map((r, i) => `${total - relegCount + i + 1}e ${r.team} <span class="jm">${r.pts}</span>`).join(' · ');
+    const bestAtt = Object.keys(gf).sort((a, b) => gf[b] - gf[a])[0];
+    const bestDef = Object.keys(ga).sort((a, b) => ga[a] - ga[b])[0];
+    const biggest = ms.slice().sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag))[0];
+    const bw = jWinnerFirst(biggest);
+
+    let moveLi = '';
+    if (before){
+      const beforePos = {}; before.forEach((r, i) => beforePos[r.team] = i + 1);
+      let riser = null, faller = null;
+      after.forEach((r, i) => {
+        const delta = beforePos[r.team] - (i + 1);
+        if (!riser || delta > riser.delta) riser = { team: r.team, delta, from: beforePos[r.team], to: i + 1 };
+        if (!faller || delta < faller.delta) faller = { team: r.team, delta, from: beforePos[r.team], to: i + 1 };
+      });
+      if (riser && riser.delta >= 3){
+        moveLi += `<li>▲ <b>${riser.team}</b> bondit de la ${riser.from}e à la ${riser.to}e place</li>`;
+        if (riser.delta >= 5) items.push({ score: 40, title: `${riser.team.toUpperCase()} S'ENVOLE`, text: `${riser.team} grimpe de ${riser.delta} places en ${league.name} (${riser.from}e → ${riser.to}e).` });
+      }
+      if (faller && faller.delta <= -3){
+        moveLi += `<li>▼ <b>${faller.team}</b> chute de la ${faller.from}e à la ${faller.to}e place</li>`;
+        if (faller.delta <= -5) items.push({ score: 38, title: `${faller.team.toUpperCase()} DÉGRINGOLE`, text: `${faller.team} recule de ${-faller.delta} places en ${league.name} (${faller.from}e → ${faller.to}e).` });
+      }
+    }
+
+    html += `<div class="journal-section">
+      <h3 class="journal-h3">${league.name} <span class="jm">· ${rangeLabel}</span></h3>
+      <p class="journal-p">${leaderTxt}</p>
+      <ul class="journal-list">
+        <li><b>Podium</b> : ${podium}</li>
+        <li><b>Zone rouge</b> : ${redZone}</li>
+        <li><b>Carton de la période</b> : ${bw.winner} ${bw.wg}-${bw.lg} ${bw.loser} <span class="jm">(J${biggest.md + 1})</span></li>
+        <li><b>Meilleure attaque</b> : ${bestAtt} (${gf[bestAtt]} buts) · <b>Meilleure défense</b> : ${bestDef} (${ga[bestDef]} encaissés)</li>
+        ${moveLi}
+      </ul></div>`;
+
+    // Équipes en forme / dans le dur (sur les 5 derniers matchs, à l'issue de la plage)
+    after.forEach((r, i) => {
+      if (r.form.length < 4) return;
+      const wins = r.form.filter(x => x === 'W').length, losses = r.form.filter(x => x === 'L').length;
+      const entry = { team: r.team, key, leagueName: league.name, pos: i + 1, pts: r.pts, form: r.form, wins, losses };
+      if (wins >= 4) hot.push(entry);
+      else if (wins === 0 && losses >= 3) cold.push(entry);
+    });
+  });
+
+  // --- Faits marquants globaux (scores fleuves, surprises) ---
+  allMatches.slice().sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag))
+    .filter(m => Math.abs(m.hg - m.ag) >= 4).slice(0, 2).forEach(m => {
+      const w = jWinnerFirst(m);
+      items.push({ score: 50 + Math.abs(m.hg - m.ag) * 3,
+        title: jPick([`${w.winner.toUpperCase()} FAIT UN CARTON`, `${w.winner.toUpperCase()} ASSOMME ${w.loser.toUpperCase()}`, `LE ROULEAU COMPRESSEUR ${w.winner.toUpperCase()}`], w.winner + w.loser),
+        text: `${w.winner} corrige ${w.loser} ${w.wg}-${w.lg} en ${LEAGUES[m.key].name} (J${m.md + 1}).` });
+    });
+  allMatches.map(m => {
+      const w = jWinnerFirst(m);
+      const diff = (STRENGTHS[w.loser] ?? 55) - (STRENGTHS[w.winner] ?? 55);
+      return { m, w, diff, draw: m.hg === m.ag };
+    }).filter(x => !x.draw && x.diff >= 12).sort((a, b) => b.diff - a.diff).slice(0, 2).forEach(x => {
+      items.push({ score: 45 + Math.min(x.diff, 30) / 2,
+        title: jPick([`${x.w.winner.toUpperCase()} RENVERSE ${x.w.loser.toUpperCase()}`, `COUP DE THÉÂTRE : ${x.w.winner.toUpperCase()} S'IMPOSE`, `${x.w.winner.toUpperCase()} FAIT TREMBLER ${x.w.loser.toUpperCase()}`], x.w.winner + x.w.loser),
+        text: `Surprise en ${LEAGUES[x.m.key].name} : ${x.w.winner} s'impose ${x.w.wg}-${x.w.lg} face à ${x.w.loser}, pourtant nettement favori.` });
+    });
+
+  hot.sort((a, b) => b.wins - a.wins || b.pts - a.pts);
+  cold.sort((a, b) => b.losses - a.losses || a.pts - b.pts);
+  if (hot[0] && hot[0].wins === hot[0].form.length && hot[0].form.length >= 5){
+    items.push({ score: 42, title: `${hot[0].team.toUpperCase()} NE S'ARRÊTE PLUS`, text: `${hot[0].team} enchaîne cinq victoires consécutives en ${hot[0].leagueName}.` });
+  }
+
+  const avg = totalMatches ? (totalGoals / totalMatches).toFixed(2).replace('.', ',') : '0';
+  const chiffre = totalMatches ? `${totalGoals} buts en ${totalMatches} matches (${avg} par match)` : '';
+
+  const formHtml = (hot.length || cold.length) ? `<div class="journal-section">
+      <h3 class="journal-h3">Les équipes en forme</h3>
+      <ul class="journal-list">${hot.slice(0, 8).map(e => `<li><b>${e.team}</b> <span class="jm">(${e.leagueName}, ${e.pos}e · ${e.pts} pts)</span> ${jFormHtml(e.form)} — ${e.wins === e.form.length ? `${e.wins} victoires de rang` : `${e.wins} victoires sur ${e.form.length}`}</li>`).join('') || '<li>Personne ne s\'est vraiment détaché.</li>'}</ul>
+      <h3 class="journal-h3" style="margin-top:12px;">Ceux qui sont dans le dur</h3>
+      <ul class="journal-list">${cold.slice(0, 6).map(e => `<li><b>${e.team}</b> <span class="jm">(${e.leagueName}, ${e.pos}e · ${e.pts} pts)</span> ${jFormHtml(e.form)} — ${e.losses} défaites sur ${e.form.length}</li>`).join('') || '<li>Aucune équipe en vraie crise de résultats.</li>'}</ul>
+    </div>` : '';
+
+  return { html, formHtml, chiffre };
+}
+
+/* ----- Coupes d'Europe (tirage, journées de phase de ligue, phases finales) ----- */
+function journalEuro(key, tasks, items){
+  const league = LEAGUES[key], st = state[key];
+  const short = key === 'ucl' ? 'Ligue des Champions' : 'Europa League';
+  const article = key === 'ucl' ? 'la Ligue des Champions' : "l'Europa League";
+  let html = '';
+  tasks.forEach(t => {
+    if (t.kind === 'euro-draw'){
+      if (!league.teams.length) return;
+      const fr = league.teams.filter(isFrenchClub);
+      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· Le tirage</span></h3>
+        <p class="journal-p">${league.teams.length} clubs au départ : ${league.qualifiedCount} qualifiés via les championnats et ${league.wildcardCount} invités venus du reste de l'Europe.${league.cdfNote ? ' ' + league.cdfNote : ''}</p>
+        <p class="journal-p">Côté français : ${fr.length ? fr.map(x => `<span class="jr-fr">${x}</span>`).join(', ') : 'aucun représentant'}.</p></div>`;
+      items.push({ score: 30, title: `${short.toUpperCase()} : LE TIRAGE EST FAIT`,
+        text: `Le tirage d${article === 'la Ligue des Champions' ? 'e la Ligue des Champions' : "e l'Europa League"} a composé une phase de ligue à 36 clubs${fr.length ? `, dont ${fr.length} ${jPlural(fr.length, 'représentant français', 'représentants français')}` : ''}.` });
+    } else if (t.kind === 'euro-md'){
+      const md = t.md;
+      if (!st.results[md]) return;
+      const ms = st.schedule[md].map(([home, away], i) => ({ home, away, res: st.results[md][i] })).filter(m => m.res);
+      if (!ms.length) return;
+      const table = tableUpTo(key, md);
+      const list = ms.map(m => `<li>${jn(m.home, true)} <b>${m.res[0]}-${m.res[1]}</b> ${jn(m.away, true)}</li>`).join('');
+      const top8 = table.slice(0, 8).map((r, i) => `${i + 1}. ${jn(r.team, true)} <span class="jm">${r.pts}</span>`).join(' · ');
+      const fr = table.map((r, i) => ({ r, pos: i + 1 })).filter(x => isFrenchClub(x.r.team))
+        .map(x => `<span class="jr-fr">${x.r.team}</span> ${x.pos}e <span class="jm">(${x.r.pts} pts)</span>`).join(' · ');
+      const perfect = md >= 1 ? table.filter(r => r.p >= 2 && r.w === r.p) : [];
+      const winless = md >= 2 ? table.filter(r => r.p >= 3 && r.w === 0) : [];
+      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· Journée ${md + 1}</span></h3>
+        <ul class="journal-list journal-results">${list}</ul>
+        <p class="journal-p"><b>Classement provisoire</b> (top 8 = direct) : ${top8}</p>
+        ${fr ? `<p class="journal-p"><b>Les Français</b> : ${fr}</p>` : ''}
+        ${perfect.length ? `<p class="journal-p"><b>Sans faute</b> : ${perfect.map(r => jn(r.team, true)).join(', ')}</p>` : ''}
+        ${winless.length ? `<p class="journal-p"><b>Toujours à la recherche d'une victoire</b> : ${winless.map(r => jn(r.team, true)).join(', ')}</p>` : ''}
+        ${md === 7 ? `<p class="journal-p"><i>La phase de ligue est terminée : les 8 premiers filent en 8es, les places 9 à 24 passent par les barrages.</i></p>` : ''}
+      </div>`;
+      const big = ms.slice().sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
+      if (big && Math.abs(big.res[0] - big.res[1]) >= 4){
+        const w = big.res[0] > big.res[1] ? { winner: big.home, loser: big.away, wg: big.res[0], lg: big.res[1] } : { winner: big.away, loser: big.home, wg: big.res[1], lg: big.res[0] };
+        items.push({ score: 52 + Math.abs(big.res[0] - big.res[1]) * 2, title: `${w.winner.toUpperCase()} TAILLE UNE COSTUME`, text: `En ${short}, ${w.winner} balaie ${w.loser} ${w.wg}-${w.lg}.` });
+      }
+      const frWin = ms.filter(m => (isFrenchClub(m.home) && m.res[0] > m.res[1]) || (isFrenchClub(m.away) && m.res[1] > m.res[0]))
+        .sort((a, b) => Math.abs(b.res[0] - b.res[1]) - Math.abs(a.res[0] - a.res[1]))[0];
+      if (frWin && Math.abs(frWin.res[0] - frWin.res[1]) >= 2){
+        const fw = frWin.res[0] > frWin.res[1] ? { winner: frWin.home, loser: frWin.away, wg: frWin.res[0], lg: frWin.res[1] } : { winner: frWin.away, loser: frWin.home, wg: frWin.res[1], lg: frWin.res[0] };
+        items.push({ score: 44, title: `${fw.winner.toUpperCase()} BRILLE EN EUROPE`, text: `Belle soirée européenne pour ${fw.winner}, vainqueur de ${fw.loser} ${fw.wg}-${fw.lg} en ${short}.` });
+      }
+    } else if (t.kind === 'euro-ko'){
+      const round = st.knockout && st.knockout.rounds.find(r => r.name === t.name);
+      if (!round) return;
+      html += `<div class="journal-section"><h3 class="journal-h3">${short} <span class="jm">· ${round.name}</span></h3>
+        <ul class="journal-list journal-results">${round.ties.map(tie => `<li>${journalTieLine(tie, true)}</li>`).join('')}</ul></div>`;
+      round.ties.forEach(tie => {
+        const w = tieWinner(tie); if (!w) return;
+        const l = w === tie.teamA ? tie.teamB : tie.teamA;
+        const diff = (STRENGTHS[l] ?? 55) - (STRENGTHS[w] ?? 55);
+        if (diff >= 12 && round.name !== 'Barrages') items.push({ score: 48, title: `${w.toUpperCase()} ÉLIMINE ${l.toUpperCase()}`, text: `Grosse surprise en ${short} : ${w} sort ${l} en ${round.name.toLowerCase()}.` });
+      });
+      if (round.name === 'Finale'){
+        const w = tieWinner(round.ties[0]);
+        if (w) items.push({ score: 97, title: key === 'ucl' ? `${w.toUpperCase()}, ROI D'EUROPE` : `${w.toUpperCase()} SACRÉ EN EUROPA LEAGUE`, text: `${w} remporte ${article}.` });
+      } else {
+        const frLeft = round.ties.map(tie => tieWinner(tie)).filter(x => x && isFrenchClub(x));
+        if (frLeft.length) items.push({ score: 36, title: `${short.toUpperCase()} : LES FRANÇAIS ALLER PLUS LOIN`, text: `${jPlural(frLeft.length, 'Seul', 'Ils sont')} ${frLeft.join(', ')} ${jPlural(frLeft.length, 'représente', 'représentent')} la France au tour suivant en ${short}.` });
+      }
+    }
+  });
+  return html;
+}
+
+/* ----- Coupe de France ----- */
+function journalCdf(tasks, items){
+  const st = state.coupefrance, league = LEAGUES.coupefrance;
+  let html = '';
+  tasks.forEach(t => {
+    if (t.kind === 'cdf-draw'){
+      if (!league.teams.length || !st.knockout) return;
+      const firstRound = st.knockout.rounds[0];
+      html += `<div class="journal-section"><h3 class="journal-h3">Coupe de France <span class="jm">· Le tirage</span></h3>
+        <p class="journal-p">${league.teams.length} clubs dans le tableau : ${league.qualifiedCount} de Ligue 1 et ${league.wildcardCount} de Ligue 2.</p>
+        <ul class="journal-list journal-results">${firstRound.ties.slice(0, 8).map(tie => `<li>${tie.teamA} <span class="jm">contre</span> ${tie.teamB}</li>`).join('')}</ul></div>`;
+      items.push({ score: 28, title: 'COUPE DE FRANCE : LE TIRAGE A PARLÉ', text: `Le tableau de la Coupe de France est connu : ${league.qualifiedCount} clubs de L1 et ${league.wildcardCount} de L2 au départ.` });
+    } else if (t.kind === 'cdf-round'){
+      const round = st.knockout && st.knockout.rounds.find(r => r.name === t.name);
+      if (!round) return;
+      html += `<div class="journal-section"><h3 class="journal-h3">Coupe de France <span class="jm">· ${round.name}</span></h3>
+        <ul class="journal-list journal-results">${round.ties.map(tie => `<li>${journalTieLine(tie, false)}</li>`).join('')}</ul></div>`;
+      round.ties.forEach(tie => {
+        const w = tieWinner(tie); if (!w) return;
+        const l = w === tie.teamA ? tie.teamB : tie.teamA;
+        if (!LEAGUES.l1.teams.includes(w) && LEAGUES.l1.teams.includes(l)){
+          items.push({ score: 58, title: `LE PETIT POUCET ${w.toUpperCase()} ÉLIMINE ${l.toUpperCase()}`, text: `Exploit en Coupe de France : ${w}, club de Ligue 2, sort ${l} en ${round.name.toLowerCase()}.` });
+        }
+      });
+      if (round.name === 'Finale'){
+        const w = tieWinner(round.ties[0]);
+        if (w) items.push({ score: 95, title: `${w.toUpperCase()} SOULÈVE LA COUPE`, text: `${w} remporte la Coupe de France.` });
+      }
+    }
+  });
+  return html;
+}
+
+/* ----- Assemblage du journal d'un jour ----- */
+function buildJournalHtml(dayIdx){
+  const tasks = weeklyDayTasks[dayIdx] || [];
+  const items = [];
+
+  const mds = tasks.filter(t => t.kind === 'domestic').map(t => t.md).sort((a, b) => a - b);
+  const dom = mds.length ? journalDomestic(mds[0], mds[mds.length - 1], items) : null;
+  const euroHtml = ['ucl', 'uel'].map(key => journalEuro(key, tasks.filter(t => t.key === key), items)).join('');
+  const cdfHtml = journalCdf(tasks.filter(t => t.kind === 'cdf-draw' || t.kind === 'cdf-round'), items);
+
+  items.sort((a, b) => b.score - a.score);
+  const top = items[0];
+  const headline = top ? top.title : 'UNE JOURNÉE SANS ÉCLAT';
+  const standfirst = top ? top.text : 'Les cinq grands championnats ont déroulé sans grosse surprise.';
+  const more = items.slice(1, 9);
+
+  const monday = seasonMonday(currentSeason);
+  const dayDate = new Date(monday.getTime()); dayDate.setUTCDate(dayDate.getUTCDate() + dayIdx);
+  const dateLabel = `${String(dayDate.getUTCDate()).padStart(2, '0')}/${String(dayDate.getUTCMonth() + 1).padStart(2, '0')}/${dayDate.getUTCFullYear()}`;
+  const issue = (currentSeason - 1) * DAY_NAMES.length + dayIdx + 1;
+
+  return `
+    <div class="journal-masthead"><div class="journal-title">LE QUOTIDIEN DU FOOT</div></div>
+    <div class="journal-meta"><span>Édition du ${DAY_NAMES[dayIdx].toLowerCase()} ${dateLabel}</span><span>Saison ${seasonLabel(currentSeason)}</span><span>N° ${issue}</span></div>
+    <div class="journal-headline">${headline}</div>
+    <div class="journal-standfirst">${standfirst}${dom && dom.chiffre ? ` <span class="jm">· Chiffre du jour : ${dom.chiffre}.</span>` : ''}</div>
+    ${more.length ? `<div class="journal-section journal-more"><h3 class="journal-h3">À lire aussi</h3><ul class="journal-list">${more.map(it => `<li>${it.text}</li>`).join('')}</ul></div>` : ''}
+    <div class="journal-cols">
+      ${euroHtml}${dom ? dom.html : ''}${cdfHtml}${dom ? dom.formHtml : ''}
+    </div>`;
+}
+
+function openJournal(dayIdx){
+  document.getElementById('journal-body').innerHTML = buildJournalHtml(dayIdx);
+  const overlay = document.getElementById('journal-overlay');
+  overlay.style.display = 'flex';
+  overlay.querySelector('.journal-sheet').scrollTop = 0;
+}
+function closeJournal(){ document.getElementById('journal-overlay').style.display = 'none'; }
+document.getElementById('weekly-grid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.journal-btn');
+  if (btn) openJournal(parseInt(btn.dataset.day, 10));
+});
+document.getElementById('journal-close-btn').addEventListener('click', closeJournal);
+document.getElementById('journal-overlay').addEventListener('click', (e) => { if (e.target.id === 'journal-overlay') closeJournal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeJournal(); });
+
 
 /* ---------- Rendu global ---------- */
 function render(){
