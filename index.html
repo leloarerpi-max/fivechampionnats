@@ -5599,6 +5599,27 @@ function jDe(name){
   if (/^Les /.test(name)) return 'des ' + name.slice(4);
   return /^[AEIOUÉÈÊÀÂÎÔÛ]/i.test(name) ? "d'" + name : 'de ' + name;
 }
+function jExpectationPhrase(rows, team, seed){
+  const byStrength = rows.slice().sort((a, b) => (STRENGTHS[b.team] ?? 55) - (STRENGTHS[a.team] ?? 55));
+  const strengthRank = byStrength.findIndex(r => r.team === team) + 1;
+  const tableRank = rows.findIndex(r => r.team === team) + 1;
+  const diff = strengthRank - tableRank;
+  if (diff >= 4) return jPick([
+    `Sur le papier, ${team} n'était pourtant pas annoncé si haut : la réalité du terrain dépasse largement les pronostics de l'intersaison.`,
+    `Personne n'attendait ${team} à ce niveau au vu de son effectif : la bonne surprise du championnat continue.`,
+    `${team} joue clairement au-dessus de sa condition théorique, et le classement ne ment pas.`
+  ], seed);
+  if (diff <= -4) return jPick([
+    `Vu la qualité de son effectif, ${team} pourrait légitimement viser mieux : il reste de la marge de progression.`,
+    `${team} n'exploite pas encore tout son potentiel sur le papier ; le classement, lui, ne ment pas.`,
+    `Un effectif taillé pour plus haut : ${team} devra hausser le ton pour confirmer son standing initial.`
+  ], seed);
+  return jPick([
+    `Une position qui colle à peu près à la hiérarchie annoncée avant la saison.`,
+    `Rien de très surprenant ici : le classement reflète assez fidèlement le rapport de force affiché sur le papier.`,
+    `${team} occupe une place cohérente avec son statut de départ.`
+  ], seed);
+}
 function jOrd(n){ return n === 1 ? '1er' : n + 'e'; }
 function jPts(n){ return `${n} ${jPlural(n, 'point', 'points')}`; }
 function jFmt(n, d){ return Number(n).toFixed(d === undefined ? 2 : d).replace('.', ','); }
@@ -5726,7 +5747,7 @@ function journalDomestic(mdFirst, mdLast, items){
       : jPick([
           `${T} occupe la première place et ${jFormPhrase(leader.form)}. Sur la période (${rangeShort}), le leader a récolté ${taken} points sur ${possible} possibles et ${gap === 0 ? `partage désormais le même total que ${S}` : `compte ${jPts(gap)} d'avance sur ${S}`}. ${thirdTxt}`,
           `En tête de ${league.name}, ${T} ${jFormPhrase(leader.form)}. ${S}, son dauphin, ${jFormPhrase(second.form)}, ${gap === 0 ? 'et l\'écart est nul' : `à ${jPts(gap)} du leader`}. ${thirdTxt}`
-        ], seed + 'p1');
+        ], seed + 'p1') + ' ' + jExpectationPhrase(after, T, seed + 'exp');
 
     // Paragraphe 2 : la course à l'Europe
     const uclNames = after.slice(0, nUcl).map(r => r.team);
@@ -5757,17 +5778,40 @@ function journalDomestic(mdFirst, mdLast, items){
     const fell = redBefore ? [...redNow].filter(t => !redBefore.has(t)) : [];
     const escaped = redBefore ? [...redBefore].filter(t => !redNow.has(t)) : [];
     const dSafe = safe.pts - last1.pts;
+    const remainingMd = st.schedule.length - 1 - last;
+    const urgence = seasonOver ? '' : (remainingMd > 0 && remainingMd <= 8
+      ? ` Il ne reste que ${remainingMd} ${jPlural(remainingMd, 'journée', 'journées')} pour sortir de cette zone : l'addition devient urgente pour tout le bas de tableau.`
+      : ` Avec encore ${remainingMd} journées à disputer, rien n'est figé, mais chaque point compte déjà.`);
     const p3 = seasonOver
       ? `Dans la charrette : ${jList(after.slice(total - relegCount).map(r => r.team))} ${jPlural(relegCount, 'descend', 'descendent')} à l'étage inférieur. ${safe.team} sauve sa place avec ${safe.pts} points.`
-      : `En bas de tableau, ${last1.team} ferme la marche avec ${last1.pts} points, ${dSafe === 0 ? `à égalité de points avec ${safe.team}` : `à ${jPts(dSafe)} ${jDe(safe.team)}`}, premier non-relégable. ${fell.length ? `${jList(fell)} ${jPlural(fell.length, 'tombe', 'tombent')} en zone rouge. ` : ''}${escaped.length ? `${jList(escaped)} ${jPlural(escaped.length, 's\'extirpe', 's\'extirpent')} de la zone rouge.` : ''}`;
+      : `En bas de tableau, ${last1.team} ferme la marche avec ${last1.pts} points, ${dSafe === 0 ? `à égalité de points avec ${safe.team}` : `à ${jPts(dSafe)} ${jDe(safe.team)}`}, premier non-relégable. ${fell.length ? `${jList(fell)} ${jPlural(fell.length, 'tombe', 'tombent')} en zone rouge. ` : ''}${escaped.length ? `${jList(escaped)} ${jPlural(escaped.length, 's\'extirpe', 's\'extirpent')} de la zone rouge.` : ''}${urgence}`;
 
     // Paragraphe 4 : dynamiques + chiffres
     const bestHot = leagueHot[0], worstCold = leagueCold[0];
     const p4 = `${bestHot ? `La meilleure dynamique du moment ? ${bestHot.team} (${jOrd(bestHot.pos)}), qui ${jFormPhrase(bestHot.form)}. ` : ''}${worstCold ? `À l'inverse, ${worstCold.team} (${jOrd(worstCold.pos)}) ${jFormPhrase(worstCold.form)}. ` : ''}Sur la période, ${goals} buts ont été inscrits (${jFmt(goals / ms.length)} par match).`;
 
+    // Paragraphe 5 : coup d'œil sur la prochaine journée (calendrier déjà connu, pas encore joué)
+    let p5 = '';
+    if (!seasonOver){
+      const nextMd = findNextUnplayedMatchday(st);
+      if (nextMd < st.schedule.length){
+        const nextFixtures = st.schedule[nextMd];
+        const leaderFx = nextFixtures.find(([h, a]) => h === T || a === T);
+        const redTeams = new Set(after.slice(total - relegCount).map(r => r.team));
+        const relFx = nextFixtures.find(([h, a]) => redTeams.has(h) && redTeams.has(a));
+        const bits = [];
+        if (leaderFx){
+          const opp = leaderFx[0] === T ? leaderFx[1] : leaderFx[0];
+          bits.push(leaderFx[0] === T ? `À suivre : ${T} reçoit ${opp} lors de la prochaine journée, l'occasion de confirmer.` : `À suivre : ${T} se déplace chez ${opp} lors de la prochaine journée, un vrai test à l'extérieur.`);
+        }
+        if (relFx) bits.push(`Choc direct en bas de tableau entre ${relFx[0]} et ${relFx[1]}, deux prétendants malheureux à la même place.`);
+        p5 = bits.join(' ');
+      }
+    }
+
     const table = jTableHtml(after.slice(0, euroN), before, pos => jZoneDomestic(league, total, pos), false)
       + `<p class="jcap">Places européennes : 1-${nUcl} Ligue des Champions · ${nUcl + 1}-${euroN} Europa League</p>`;
-    articles.push(jArticle(`${league.name} · ${rangeShort}`, title, chapo, [p1, p2, p3, p4], table));
+    articles.push(jArticle(`${league.name} · ${rangeShort}`, title, chapo, [p1, p2, p3, p4, p5], table));
 
     // Titres de une éventuels (avec corps d'article)
     if (seasonOver){
@@ -5807,7 +5851,12 @@ function journalDomestic(mdFirst, mdLast, items){
             `Il y a des journées où tout réussit. Pour ${w.winner}, ce fut le cas contre ${w.loser} : ${w.wg} buts à ${w.lg}, une addition salée qui pèse sur le classement de ${ln}.`,
             `${w.loser} s'en souviendra. Malmené de bout en bout, le ${jOrd(lc.pos)} de ${ln} a plié face à un ${w.winner} des grands jours (${w.wg}-${w.lg}).`
           ], w.winner + w.loser + 'b'),
-          `De son côté, ${w.winner} ${jFormPhrase(wc.form)}. ${w.loser}, lui, ${jFormPhrase(lc.form)}.`] });
+          `De son côté, ${w.winner} ${jFormPhrase(wc.form)}. ${w.loser}, lui, ${jFormPhrase(lc.form)}.`,
+          jPick([
+            `Une victoire qui pèse lourd au classement : ${w.winner} grimpe à ${wc.pts} points et se rapproche du haut de tableau.`,
+            `Ce genre de résultat change la physionomie d'une saison ; à ${wc.pts} points, ${w.winner} peut voir plus loin.`,
+            `Sur la pelouse, la différence de niveau a été flagrante d'un bout à l'autre de la rencontre.`
+          ], w.winner + w.loser + 'c')] });
     });
   allMatches.map(m => { const w = jWinnerFirst(m); return { m, w, diff: (STRENGTHS[w.loser] ?? 55) - (STRENGTHS[w.winner] ?? 55), draw: m.hg === m.ag }; })
     .filter(x => !x.draw && x.diff >= 12).sort((a, b) => b.diff - a.diff).slice(0, 2).forEach(x => {
@@ -5817,7 +5866,12 @@ function journalDomestic(mdFirst, mdLast, items){
         title: jPick([`${x.w.winner.toUpperCase()} RENVERSE ${x.w.loser.toUpperCase()}`, `COUP DE THÉÂTRE : ${x.w.winner.toUpperCase()} S'IMPOSE`, `${x.w.winner.toUpperCase()} FAIT TREMBLER ${x.w.loser.toUpperCase()}`], x.w.winner + x.w.loser),
         text: `Surprise en ${ln} : ${x.w.winner} s'impose ${x.w.wg}-${x.w.lg} face à ${x.w.loser}, pourtant nettement favori.`,
         body: [`Sur le papier, ${x.w.loser} (${jOrd(lc.pos)}) partait avec les faveurs du pronostic. Sur la pelouse, c'est ${x.w.winner} (${jOrd(wc.pos)}) qui a eu le dernier mot, ${x.w.wg}-${x.w.lg}.`,
-               `Une performance qui compte double dans ${enjeu}. ${x.w.winner} ${jFormPhrase(wc.form)} ; ${x.w.loser} ${jFormPhrase(lc.form)}.`] });
+               `Une performance qui compte double dans ${enjeu}. ${x.w.winner} ${jFormPhrase(wc.form)} ; ${x.w.loser} ${jFormPhrase(lc.form)}.`,
+               jPick([
+                 `Ce genre de résultat rappelle qu'un classement sur le papier ne joue jamais les matchs à la place des joueurs.`,
+                 `De quoi relancer complètement la dynamique de ${x.w.winner}, et jeter un doute sur celle de ${x.w.loser}.`,
+                 `Une leçon d'humilité pour ${x.w.loser}, qui devra vite tourner la page avant le prochain rendez-vous.`
+               ], x.w.winner + x.w.loser + 'c')] });
     });
 
   hot.sort((a, b) => b.wins - a.wins || b.pts - a.pts);
@@ -5891,12 +5945,27 @@ function journalEuro(key, tasks, items){
     const title = lastMd === 7 ? `${short} : la phase de ligue est bouclée`
       : (first === 0 ? `${short} : c'est parti !` : jPick([`${short} : la course au top 8 s'accélère`, `${short} : ça se resserre`, `${short} : les premiers verdicts tombent`], key + first));
     const chapo = `${jn(leader.team, true)} (${leader.pts} pts) est en tête après ${first === lastMd ? 'la journée ' + (first + 1) : 'les journées ' + (first + 1) + ' à ' + (lastMd + 1)}${lastMd === 7 ? ' et termine premier de la phase de ligue' : ''}.${frRows.length ? ` Côté français : ${frTop8.length} dans le top 8, ${frBar.length} en barrages, ${frOut.length} sous la barre.` : ''}`;
-    const p1 = `${jn(leader.team, true)} occupe la tête avec ${leader.pts} points. ${perfect.length ? `${jList(perfect.map(r => jn(r.team, true)))} ${jPlural(perfect.length, 'affiche', 'affichent')} un sans-faute. ` : ''}${jn(bestAtt.team, true)} possède la meilleure attaque (${bestAtt.gf} buts).`;
+    const p1 = `${jn(leader.team, true)} occupe la tête avec ${leader.pts} points. ${perfect.length ? `${jList(perfect.map(r => jn(r.team, true)))} ${jPlural(perfect.length, 'affiche', 'affichent')} un sans-faute. ` : ''}${jn(bestAtt.team, true)} possède la meilleure attaque (${bestAtt.gf} buts). ${jExpectationPhrase(table, leader.team, key + first + 'exp')}`;
     const p2 = frRows.length
       ? `Côté français, ${jList(frRows.map(x => `<span class="jr-fr">${x.r.team}</span> (${jOrd(x.pos)}, ${x.r.pts} pts)`))}. ${frOut.length ? `${jList(frOut.map(x => x.r.team))} ${jPlural(frOut.length, 'est', 'sont')} pour l'instant sous la ligne de flottaison.` : (frTop8.length ? 'Le bilan tricolore est plutôt flatteur.' : '')}`
       : '';
     const p3 = `La barre du top 8 se situe à ${t8.pts} points (${jn(t8.team, true)}) ; ${jn(t9.team, true)} (9e) est le premier barragiste. Pour les barrages, la 24e place appartient à ${jn(t24.team, true)} (${t24.pts} pts) ; ${jn(t25.team, true)} (25e, ${t25.pts} pts) est le premier éliminé provisoire. ${winless.length ? `${jList(winless.map(r => jn(r.team, true)))} ${jPlural(winless.length, 'reste', 'restent')} sans victoire.` : ''}${lastMd === 7 ? ' Les 8 premiers filent en 8es, les places 9 à 24 jouent les barrages.' : ''}`;
-    html += jArticle(`${kicker} · ${rangeTxt[0].toUpperCase() + rangeTxt.slice(1)}`, title, chapo, [p1, p2, p3],
+    let p4euro = '';
+    if (lastMd < 7){
+      const nextMd = lastMd + 1;
+      const nextFixtures = st.schedule[nextMd];
+      const leaderFx = nextFixtures && nextFixtures.find(([h, a]) => h === leader.team || a === leader.team);
+      const frNextFx = (!leaderFx && nextFixtures) ? nextFixtures.find(([h, a]) => isFrenchClub(h) || isFrenchClub(a)) : null;
+      if (leaderFx){
+        const opp = leaderFx[0] === leader.team ? leaderFx[1] : leaderFx[0];
+        p4euro = `À suivre à la prochaine journée : ${jn(leader.team, true)} face à ${jn(opp, true)}, un nouveau test pour le leader.`;
+      } else if (frNextFx){
+        p4euro = `À suivre à la prochaine journée : ${jn(frNextFx[0], true)} - ${jn(frNextFx[1], true)}, un rendez-vous à surveiller côté français.`;
+      }
+    } else {
+      p4euro = `Cap sur les barrages et les 8es de finale : le tirage à venir dira qui affrontera qui sur les deux prochains tours.`;
+    }
+    html += jArticle(`${kicker} · ${rangeTxt[0].toUpperCase() + rangeTxt.slice(1)}`, title, chapo, [p1, p2, p3, p4euro],
       jTableHtml(table.slice(0, 24), before, jZoneEuro, true) + `<p class="jcap">Vert : qualifiés directs (1-8) · Bleu : barrages (9-24) · les 12 derniers ne figurent pas dans le tableau</p>`);
 
     const ms = st.schedule[lastMd].map(([home, away], i) => ({ home, away, res: st.results[lastMd][i] })).filter(m => m.res);
